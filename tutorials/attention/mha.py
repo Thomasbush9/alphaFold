@@ -1,6 +1,7 @@
 import torch
 import math
 from torch import nn
+import einops
 
 class MultiHeadAttention(nn.Module):
     """
@@ -9,7 +10,7 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(self, c_in, c, N_head, attn_dim, gated=False, is_global=False, use_bias_for_embeddings=False):
         """
-        Initializes the module. MultiHeadAttention theoretically consists of 
+        Initializes the module. MultiHeadAttention theoretically consists of
         N_head separate linear layers for the query, key and value embeddings.
         However, the embeddings can be computed jointly and split afterwards,
         so we only need one query, key and value layer with larger c_out.
@@ -20,16 +21,16 @@ class MultiHeadAttention(nn.Module):
             N_head (int): Number of heads.
             attn_dim (int): The dimension in the input tensor along which
                 the attention mechanism is performed.
-            gated (bool, optional): If True, an additional sigmoid-activated 
-                linear layer will be multiplicated against the weighted 
-                value vectors before feeding them through the output layer. 
+            gated (bool, optional): If True, an additional sigmoid-activated
+                linear layer will be multiplicated against the weighted
+                value vectors before feeding them through the output layer.
                 Defaults to False.
             is_global (bool, optional): If True, global calculation will be performed.
                 For global calculation, key and value embeddings will only use one head,
                 and the q query vectors will be averaged to one query vector.
                 Defaults to False.
-            use_bias_for_embeddings (bool, optional): If True, query, 
-                key, and value embeddings will use bias, otherwise not. 
+            use_bias_for_embeddings (bool, optional): If True, query,
+                key, and value embeddings will use bias, otherwise not.
                 Defaults to False.
         """
         super().__init__()
@@ -51,7 +52,15 @@ class MultiHeadAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.use_bias_for_embeddings = use_bias_for_embeddings
+        self.linear_q = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
+        self.linear_k = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
+        self.linear_v = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
+
+        self.linear_o = nn.Linear(self.c * self.N_head, self.c_in, bias=True)
+        if self.gated:
+            self.linear_g = nn.Linear(self.c_in, self.c * self.N_head, bias=True)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -60,8 +69,8 @@ class MultiHeadAttention(nn.Module):
     def prepare_qkv(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor):
         """
         Splits the embeddings into individual heads and transforms the input
-        shapes of form (*, q/k/v, *, N_head*c) into the shape 
-        (*, N_head, q/k/v, c). The position of the q/k/v dimension 
+        shapes of form (*, q/k/v, *, N_head*c) into the shape
+        (*, N_head, q/k/v, c). The position of the q/k/v dimension
         in the original tensors is given by attn_dim.
 
         Args:
@@ -70,19 +79,33 @@ class MultiHeadAttention(nn.Module):
             v (torch.Tensor): Value embedding of shape (*, v, *, N_head*c).
 
         Returns:
-            tuple: The rearranged embeddings q, k, and v of 
+            tuple: The rearranged embeddings q, k, and v of
                 shape (*, N_head, q/k/v, c) respectively.
         """
 
         ##########################################################################
         # TODO: Rearrange the tensors with the following changes:                #
-        #   - (*, q/k/v, *, N_head*c) -> (*, q/k/v, N_head*c) with movedim       # 
+        #   - (*, q/k/v, *, N_head*c) -> (*, q/k/v, N_head*c) with movedim       #
         #   - (*, q/k/v, N_head*c) -> (*, q/k/v, N_head, c)                      #
         #   - (*, q/k/v, N_head, c) -> (*, N_head, q/k/v, c)                     #
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        q = q.movedim(self.attn_dim, -2)
+        v = v.movedim(self.attn_dim, -2)
+        k = k.movedim(self.attn_dim, -2)
+        new_shape = q.shape[:-1] + (self.N_head, self.c)
+        q = torch.reshape(q, new_shape)
+        q = q.movedim(-2, -3)
+
+        v = torch.reshape(v, new_shape)
+        v = v.movedim(-2, -3)
+
+        k = torch.reshape(k, new_shape)
+        k = k.movedim(-2, -3)
+
+
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -92,11 +115,11 @@ class MultiHeadAttention(nn.Module):
 
     def prepare_qkv_global(self, q, k, v):
         """
-        Prepares the query, key and value embeddings with the following 
+        Prepares the query, key and value embeddings with the following
         differences to the non-global version:
             - key and value embeddings use only one head.
             - the query vectors are contracted into one, average query vector.
-        
+
 
         Args:
             q (torch.tensor): Query embeddings of shape (*, q, *, N_head*c).
@@ -105,7 +128,7 @@ class MultiHeadAttention(nn.Module):
 
         Returns:
             tuple: The rearranged embeddings q, k, and v of
-                shape (*, N_head, 1, c) for q and shape (*, 1, k, c) for k and v. 
+                shape (*, N_head, 1, c) for q and shape (*, 1, k, c) for k and v.
         """
 
         ##########################################################################
@@ -129,7 +152,7 @@ class MultiHeadAttention(nn.Module):
         Args:
             x (torch.tensor): Input tensor of shape (*, q/k/v, *, c_in).
             bias (torch.tensor, optional): Optional bias tensor of shape
-                (*, N_head, q, k) that will be added to the attention weights. 
+                (*, N_head, q, k) that will be added to the attention weights.
                 Defaults to None.
             attention_mask (torch.tensor, optional): Optional attention mask
                 of shape (*, k). If set, the keys with value 0 in the mask will
