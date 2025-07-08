@@ -578,10 +578,19 @@ def calculate_msa_feat(features):
     #          - `cluster_deletion_mean`
     ##########################################################################
 
-    # Replace "pass" statement with your code
-    pass
+    # Replace "pass" statement with your code    ##########################################################################
+    cluster_msa = features['msa_aatype']
 
-    ##########################################################################
+    cluster_has_deletion = (features['msa_deletion_count'] > 0).float().unsqueeze(-1)
+
+    cluster_deletion_value = 2/torch.pi * torch.arctan(features['msa_deletion_count'] / 3)
+    cluster_deletion_value = cluster_deletion_value.unsqueeze(-1)
+
+    cluster_deletion_mean = features['cluster_deletion_mean'].unsqueeze(-1)
+    cluster_profile = features['cluster_profile']
+
+    msa_feat = torch.cat((cluster_msa, cluster_has_deletion, cluster_deletion_value, cluster_profile, cluster_deletion_mean), dim=-1)
+
     # END OF YOUR CODE                                                       #
     ##########################################################################
 
