@@ -705,7 +705,28 @@ def create_features_from_a3m(file_name, seed=None):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    sequences = load_a3m_file(file_name)
+    features = initial_data_from_seqs(sequences)
+    transformation_list = [lambda x :select_cluster_centers(x, seed=select_clusters_seed),
+                           lambda x: mask_cluster_centers(x, seed=mask_clusters_seed),
+                           cluster_assignment,
+                           summarize_clusters,
+                           lambda x : crop_extra_msa(x, seed=crop_extra_seed)]
+    for f in transformation_list:
+        features = f(features)
+
+    # enforce float
+    for key, value in features.items():
+        features[key] = value.float()
+    #final features
+    msa_feat = calculate_msa_feat(features)
+    extra_msa_feat = calculate_extra_msa_feat(features)
+
+    # target features and idxs
+
+    target_feat = onehot_encode_aa_type(sequences[0], include_gap_token=False)
+    target_feat = target_feat.float()
+    residue_index = torch.arange(len(sequences[0]))
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
