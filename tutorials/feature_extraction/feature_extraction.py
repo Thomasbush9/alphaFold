@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+from tqdm import tqdm
 import torch
 import re
 from torch import nn
@@ -6,8 +8,8 @@ _restypes = ["A","R","N","D","C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "
 _restypes_with_x = _restypes + ["X"]
 _restypes_with_x_and_gap = _restypes_with_x + ["-"]
 
-restype_order_with_x = None
-restype_order_with_x_and_gap = None
+restype_order_with_x = {res:idx for idx, res in enumerate(_restypes_with_x)}
+restype_order_with_x_and_gap = {res:idx for idx, res in enumerate(_restypes_with_x_and_gap)}
 
 ##########################################################################
 # TODO: Initialize the variables above as dicts mapping the              #
@@ -44,13 +46,25 @@ def load_a3m_file(file_name: str):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    current_id = None
+    seqs = {}
+    with open(file_name, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith('>'):
+                current_id = line[1:]
+                seqs[current_id] = ""
+            elif current_id:
+                seqs[current_id] = line
+
+    sequences = [value for value in seqs.values()]
+
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
     ##########################################################################
 
-    return seqs
+    return sequences
 
 
 
@@ -60,11 +74,11 @@ def onehot_encode_aa_type(seq, include_gap_token=False):
 
     Args:
         seq:  A string representing the amino acid sequence using single-letter codes.
-        include_gap_token: If True, includes an extra token ('-') in the encoding to 
+        include_gap_token: If True, includes an extra token ('-') in the encoding to
                            represent gaps.
 
-    Returns: 
-        A PyTorch tensor of shape (N_res, 22) if `include_gap_token` is True, 
+    Returns:
+        A PyTorch tensor of shape (N_res, 22) if `include_gap_token` is True,
         or shape (N_res, 21) otherwise.  Here, N_res is the length of the sequence.
     """
     restype_order = restype_order_with_x if not include_gap_token else restype_order_with_x_and_gap
@@ -72,19 +86,15 @@ def onehot_encode_aa_type(seq, include_gap_token=False):
 
     ##########################################################################
     # TODO:
-    # 1. Obtain the correct numerical index for each amino acid in the input 
+    # 1. Obtain the correct numerical index for each amino acid in the input
     #    sequence 'seq' using the  'restype_order' variable.
     # 2. Apply PyTorch's `nn.functional.one_hot` encoding the numerical indices
-    #    to create the final one-hot representation. 
+    #    to create the final one-hot representation.
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
-
-    ##########################################################################
-    # END OF YOUR CODE                                                       #
-    ##########################################################################
-
+    seq = [restype_order[s] for s in seq]
+    encoding = nn.functional.one_hot(torch.LongTensor(seq), num_classes=len(restype_order))
     return encoding
 
 
@@ -94,27 +104,27 @@ def initial_data_from_seqs(seqs):
     Processes raw sequences from an A3M file to extract initial feature representations.
 
     Args:
-        seqs: A list of amino acid sequences loaded from the A3M file. 
+        seqs: A list of amino acid sequences loaded from the A3M file.
               Sequences are represented with single-letter amino acid codes.
               Lowercase letters represent deletions.
 
     Returns:
         A dictionary containing:
             * msa_aatype: A PyTorch tensor of one-hot encoded amino acid sequences
-                  of shape (N_seq, N_res, 22), where N_seq is the number of unique 
-                  sequences (with deletions removed) and N_res is the length of the sequences. 
-                  The dimension 22 corresponds to the 20 amino acids, an unknown amino acid 
-                  token, and a gap token. 
-            * msa_deletion_count: A tensor of shape (N_seq, N_res) where 
-                  each element represents the number of deletions occurring before 
+                  of shape (N_seq, N_res, 22), where N_seq is the number of unique
+                  sequences (with deletions removed) and N_res is the length of the sequences.
+                  The dimension 22 corresponds to the 20 amino acids, an unknown amino acid
+                  token, and a gap token.
+            * msa_deletion_count: A tensor of shape (N_seq, N_res) where
+                  each element represents the number of deletions occurring before
                   the corresponding residue in the MSA.
-            * aa_distribution: A tensor of shape (N_res, 22) containing the 
-                  overall amino acid distribution at each residue position 
-                  across the MSA.  
+            * aa_distribution: A tensor of shape (N_res, 22) containing the
+                  overall amino acid distribution at each residue position
+                  across the MSA.
     """
 
-    unique_seqs = None
-    deletion_count_matrix = None
+    unique_seqs = []
+    deletion_count_matrix = []
     aa_distribution = None
 
     ##########################################################################
@@ -126,7 +136,7 @@ def initial_data_from_seqs(seqs):
     #       * Iterate through letters, counting lowercase letters            #
     #         as deletions.                                                  #
     #       * Append the deletion count list to the main                     #
-    #         'deletion_count_matrix' only if the sequence                   # 
+    #         'deletion_count_matrix' only if the sequence                   #
     #         (after removing deletions) has not been seen before.           #
     #    * Convert 'deletion_count_matrix' into a PyTorch tensor.            #
     # 2. Identify 'unique_seqs':                                             #
@@ -145,7 +155,26 @@ def initial_data_from_seqs(seqs):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    for seq in tqdm(seqs, desc='Iterating sequences'):
+        delitions_count_seq = []
+        aligned_seq = []
+        count = 0
+        for e in seq:
+            if e.islower():
+               count +=1
+            else:
+                delitions_count_seq.append(count)
+                count = 0
+                aligned_seq.append(e)
+        aligned_seq = ''.join(aligned_seq)
+        if aligned_seq not in unique_seqs:
+            unique_seqs.append(aligned_seq)
+            deletion_count_matrix.append(delitions_count_seq)
+
+    deletion_count_matrix = torch.Tensor(deletion_count_matrix)
+    unique_seqs = torch.stack([onehot_encode_aa_type(seq, include_gap_token=True).float() for seq in unique_seqs])
+    aa_distribution = unique_seqs.mean(dim=0)
+
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
@@ -155,21 +184,21 @@ def initial_data_from_seqs(seqs):
 
 def select_cluster_centers(features, max_msa_clusters=512, seed=None):
     """
-    Selects representative sequences as cluster centers from the MSA to  
+    Selects representative sequences as cluster centers from the MSA to
     reduce redundancy.
 
     Args:
         features: A dictionary containing feature representations of the MSA.
         max_msa_clusters: The maximum number of cluster centers to select.
-        seed: An optional integer seed for the random number generator. 
+        seed: An optional integer seed for the random number generator.
               Use this to ensure reproducibility.
 
     Modifies:
         The 'features' dictionary in-place by:
-            * Updating the 'msa_aatype' and 'msa_deletion_count' features to contain 
-              data for the cluster centers only.  
+            * Updating the 'msa_aatype' and 'msa_deletion_count' features to contain
+              data for the cluster centers only.
             * Adding 'extra_msa_aatype' and 'extra_msa_deletion_count' features
-              to hold the data for the remaining (non-center) sequences. 
+              to hold the data for the remaining (non-center) sequences.
     """
 
     N_seq, N_res = features['msa_aatype'].shape[:2]
@@ -184,18 +213,37 @@ def select_cluster_centers(features, max_msa_clusters=512, seed=None):
     ##########################################################################
     # TODO:
     # 1. **Implement Shuffling:**
-    #      * Use  `torch.randperm(N_seq - 1)` with the provided  `gen` (random number generator) 
+    #      * Use  `torch.randperm(N_seq - 1)` with the provided  `gen` (random number generator)
     #        to shuffle the indices from 1 to (N_seq - 1). Ensure reproducibility if the seed is not None.
     #      * Prepend a 0 to the shuffled indices to include the first sequence.
     # 2. **Split Features:**
     #      * Using the shuffled indices,  split the MSA feature representations (`msa_aatype` and
     #        `msa_deletion_count`) into two sets:
     #          *  The first `max_msa_clusters` sequences will be the cluster centers.
-    #          *  The remaining sequences will be stored with keys prefixed by  'extra_'. 
+    #          *  The remaining sequences will be stored with keys prefixed by  'extra_'.
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+
+    idxs = torch.randperm(N_seq - 1, generator=gen) + 1
+    target = torch.tensor([0], dtype=torch.long, device=idxs.device)
+    #ensure that 0 is present
+    shuffled_cluster_idxs = torch.cat((target, idxs)).int()
+    idxs_selected = shuffled_cluster_idxs[:max_msa_clusters]
+    idxs_extra = shuffled_cluster_idxs[max_msa_clusters:]
+
+    msa_selected = features['msa_aatype'][idxs_selected]
+    msa_extra = features['msa_aatype'][idxs_extra]
+
+    deletion_selected = features['msa_deletion_count'][idxs_selected]
+    deletion_extra = features['msa_deletion_count'][idxs_extra]
+
+    features['msa_aatype'] = msa_selected
+    features['extra_msa_aatype'] = msa_extra
+    features['msa_deletion_count'] = deletion_selected
+    features['extra_msa_deletion_count'] = deletion_extra
+
+    #split the features
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
@@ -207,23 +255,23 @@ def mask_cluster_centers(features, mask_probability=0.15, seed=None):
     """
     Introduces random masking in the cluster center sequences for data augmentation.
 
-    This function modifies the 'msa_aatype' feature within the 'features' dictionary to improve 
-    model robustness in the presence of noisy or missing input data.  Masking is inspired by 
+    This function modifies the 'msa_aatype' feature within the 'features' dictionary to improve
+    model robustness in the presence of noisy or missing input data.  Masking is inspired by
     the AlphaFold architecture.
 
     Args:
         features: A dictionary containing feature representations of the MSA. It is assumed
                   that cluster centers have already been selected.
-        mask_probability: The probability of masking out an individual amino acid 
+        mask_probability: The probability of masking out an individual amino acid
                           in a cluster center sequence.
-        seed: An optional integer seed for the random number generator. 
+        seed: An optional integer seed for the random number generator.
               Use this to ensure reproducibility.
 
     Modifies:
         The 'features' dictionary in-place by:
-            * Updating the 'msa_aatype' feature with masked-out tokens as well as possible 
-              replacements based on defined probabilities. 
-            * Creating a copy of the original 'msa_aatype' feature with the key 'true_msa_aatype'. 
+            * Updating the 'msa_aatype' feature with masked-out tokens as well as possible
+              replacements based on defined probabilities.
+            * Creating a copy of the original 'msa_aatype' feature with the key 'true_msa_aatype'.
     """
 
     N_clust, N_res = features['msa_aatype'].shape[:2]
@@ -243,12 +291,12 @@ def mask_cluster_centers(features, mask_probability=0.15, seed=None):
     ##########################################################################
     # TODO:
     # 1. **Select Modification Candidates:**
-    #      * Generate a random mask (tensor of shape (N_clust, N_res) ) where each element is a 
-    #        random number between 0 and 1. 
+    #      * Generate a random mask (tensor of shape (N_clust, N_res) ) where each element is a
+    #        random number between 0 and 1.
     #      * Select elements where the random number is less than the `mask_probability` for potential modification.
     # 2. **Replacement Logic:**
     #      * Create tensors to represent substitution probabilities:
-    #          * `uniform_replacement`: Shape (22,) 
+    #          * `uniform_replacement`: Shape (22,)
     #             - Set the first 20 elements (amino acids) to `1/20 * odds['uniform_replacement']`.
     #             - Set the last 2 elements (unknown AA and gap) to 0.
     #          * `replacement_from_distribution`: Shape (N_res, 22), calculated from 'features['aa_distribution]'. Scale by `odds['replacement_from_distribution']`
@@ -256,20 +304,45 @@ def mask_cluster_centers(features, mask_probability=0.15, seed=None):
     #          * `masked_out`: Shape (N_clust, N_res, 1), all elements are `odds['masked_out']`.
     #      * **Sum** the first three tensors, then **concatenate** with `masked_out` along the last dimension.  This creates 'categories_with_mask_token' of shape (N_clust, N_res, 23)
     #      * Flatten the first two dimensions of 'categories_with_mask_token' for sampling.
-    #      * Use  `torch.distributions.Categorical` and the flattened 'categories_with_mask_token' tensor to 
-    #        probabilistically determine replacements for the selected residues. 
+    #      * Use  `torch.distributions.Categorical` and the flattened 'categories_with_mask_token' tensor to
+    #        probabilistically determine replacements for the selected residues.
     #      * Reshape the sampled replacements back to (N_clust, N_res).
     # 3. **Preserve Original Data:**
     #      * Create a copy of the original 'msa_aatype' data under the key 'true_msa_atype'.
     # 4. **Apply Masking:**
-    #      * Update the 'msa_aatype' tensor, but *only* for the elements selected in step 1 for modification, with the sampled replacements.  Leave other elements unchanged. 
+    #      * Update the 'msa_aatype' tensor, but *only* for the elements selected in step 1 for modification, with the sampled replacements.  Leave other elements unchanged.
     ##########################################################################
-
-    # Replace "pass" statement with your code
-    pass
-
     ##########################################################################
-    # END OF YOUR CODE                                                       #
+        # Replace "pass" statement with your code
+
+    uniform_replacement = torch.tensor([1/20]*20+[0,0]) * odds['uniform_replacement']
+    # replacement_from_distribution has shape (N_res, 22)
+    replacement_from_distribution = features['aa_distribution'] * odds['replacement_from_distribution']
+    # no_replacement has shape (N_clust, N_res, 22)
+    no_replacement = features['msa_aatype'] * odds['no_replacement']
+    # masked_out has shape (N_clust, N_res, 1)
+    masked_out = torch.ones((N_clust, N_res, 1)) * odds['masked_out']
+
+    uniform_replacement = uniform_replacement[None, None, ...].broadcast_to(no_replacement.shape)
+    replacement_from_distribution = replacement_from_distribution[None, ...].broadcast_to(no_replacement.shape)
+
+    categories_without_mask_token = uniform_replacement + replacement_from_distribution + no_replacement
+    categories_with_mask_token = torch.cat((categories_without_mask_token, masked_out), dim=-1)
+    categories_with_mask_token = categories_with_mask_token.reshape(-1, N_aa_categories)
+
+    replace_with = torch.distributions.Categorical(categories_with_mask_token).sample()
+    replace_with = nn.functional.one_hot(replace_with, num_classes=N_aa_categories)
+    replace_with = replace_with.reshape(N_clust, N_res, N_aa_categories)
+    replace_with = replace_with.float()
+
+    replace_mask = torch.rand((N_clust, N_res), generator=gen) < mask_probability
+
+    features['true_msa_aatype'] = features['msa_aatype'].clone()
+    aatype_padding = torch.zeros((N_clust, N_res, 1))
+    features['msa_aatype'] = torch.cat((features['msa_aatype'], aatype_padding), dim=-1)
+    features['msa_aatype'][replace_mask] = replace_with[replace_mask]
+
+   # END OF YOUR CODE                                                       #
     ##########################################################################
 
     return features
@@ -279,39 +352,46 @@ def cluster_assignment(features):
     Assigns sequences in the extra MSA to their closest cluster centers based on Hamming distance.
 
     Args:
-        features: A dictionary containing feature representations of the MSA. 
+        features: A dictionary containing feature representations of the MSA.
                   It is assumed that cluster centers have already been selected.
 
     Returns:
         The updated 'features' dictionary with the following additions:
-            * cluster_assignment:  A tensor of shape (N_extra,) containing the indices 
+            * cluster_assignment:  A tensor of shape (N_extra,) containing the indices
                                   of the assigned cluster centers for each extra sequence.
-            * cluster_assignment_counts: A tensor of shape (N_clust,)  where each element indicates 
-                                        the number of extra sequences assigned to a cluster center 
+            * cluster_assignment_counts: A tensor of shape (N_clust,)  where each element indicates
+                                        the number of extra sequences assigned to a cluster center
                                         (excluding the cluster center itself).
     """
-    
+
     N_clust, N_res = features['msa_aatype'].shape[:2]
     N_extra = features['extra_msa_aatype'].shape[0]
 
     ##########################################################################
     # TODO:
     # 1. **Prepare Features:**
-    #     * Obtain slices of the 'msa_aatype' (shape: N_clust, N_res, 23) and 'extra_msa_aatype' (shape: N_extra, N_res, 22) tensors 
+    #     * Obtain slices of the 'msa_aatype' (shape: N_clust, N_res, 23) and 'extra_msa_aatype' (shape: N_extra, N_res, 22) tensors
     #       that exclude the  'gap' and 'masked' tokens.  This focuses the calculation on the standard amino acids.
     # 2. **Calculate Agreement:**
-    #     * Employ broadcasting and tensor operations on the prepared features to efficiently calculate the number of positions where 
-    #       the amino acids in each extra sequence agree with those in each cluster center.  The result will be an 'agreement' tensor 
-    #       of shape (N_clust, N_extra).  `torch.einsum` can be a useful tool here. 
+    #     * Employ broadcasting and tensor operations on the prepared features to efficiently calculate the number of positions where
+    #       the amino acids in each extra sequence agree with those in each cluster center.  The result will be an 'agreement' tensor
+    #       of shape (N_clust, N_extra).  `torch.einsum` can be a useful tool here.
     # 3. **Assign Clusters:**
-    #     * Use `torch.argmax(agreement, dim=0)` to find the cluster center index with the highest agreement (lowest Hamming distance) for each extra sequence. 
-    # 4. **Compute Assignment Counts:** 
-    #     * Use `torch.bincount` to efficiently calculate the number of extra sequences assigned to each cluster center (excluding 
+    #     * Use `torch.argmax(agreement, dim=0)` to find the cluster center index with the highest agreement (lowest Hamming distance) for each extra sequence.
+    # 4. **Compute Assignment Counts:**
+    #     * Use `torch.bincount` to efficiently calculate the number of extra sequences assigned to each cluster center (excluding
     #       the cluster center itself).  Ensure you set the `minlength` parameter appropriately.
     ##########################################################################
 
-    # Replace "pass" statement with your code
-    pass
+    sliced_msa_aatype = features['msa_aatype'][..., :21]
+    sliced_extra_msa_type = features['extra_msa_aatype'][..., :21]
+#c:clust, r = res, e=enc, x=extra,
+    agreement_tensor = torch.einsum('cre,xre->cx', sliced_msa_aatype, sliced_extra_msa_type)
+    assignment = torch.argmax(agreement_tensor,dim=0)
+    features['cluster_assignment'] = assignment
+
+    assignment_counts = torch.bincount(assignment, minlength=N_clust)
+    features['cluster_assignment_counts'] = assignment_counts
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
@@ -321,24 +401,24 @@ def cluster_assignment(features):
 
 def cluster_average(feature, extra_feature, cluster_assignment, cluster_assignment_count):
     """
-    Calculates the average representation of each cluster center by aggregating features 
+    Calculates the average representation of each cluster center by aggregating features
     from the assigned extra sequences.
 
     Args:
         feature: A tensor containing feature representations for the cluster centers.
                  Shape: (N_clust, N_res, *)
         extra_feature: A tensor containing feature representations for extra sequences.
-                       Shape: (N_extra, N_res, *).  The trailing dimensions (*) must 
+                       Shape: (N_extra, N_res, *).  The trailing dimensions (*) must
                        be smaller or equal to those of the 'feature' tensor.
         cluster_assignment: A tensor indicating the cluster assignment of each extra sequence.
                             Shape: (N_extra,)
-        cluster_assignment_count: A tensor containing the number of extra 
+        cluster_assignment_count: A tensor containing the number of extra
                                  sequences assigned to each cluster center.
                                  Shape: (N_clust,)
 
     Returns:
-        A tensor containing the average feature representation for each cluster. 
-        Shape: (N_clust, N_res, *) 
+        A tensor containing the average feature representation for each cluster.
+        Shape: (N_clust, N_res, *)
     """
     N_clust, N_res = feature.shape[:2]
     N_extra = extra_feature.shape[0]
@@ -349,13 +429,20 @@ def cluster_average(feature, extra_feature, cluster_assignment, cluster_assignme
     #     * Broadcast the `cluster_assignment` tensor to have the same shape as `extra_feature`.
     #     This is necessary for compatibility with `torch.scatter_add`.
     # 2. **Accumulate Features:**
-    #     * Use `torch.scatter_add` to efficiently sum (or accumulate) the `extra_feature` values  for each cluster.  The broadcasted `cluster_assignment` tensor will define the grouping. 
+    #     * Use `torch.scatter_add` to efficiently sum (or accumulate) the `extra_feature` values  for each cluster.  The broadcasted `cluster_assignment` tensor will define the grouping.
     # 3. **Calculate Averages:**
-    #     * Divide the accumulated features by the `cluster_assignment_count` + 1 to obtain the average feature representations for each cluster. 
+    #     * Divide the accumulated features by the `cluster_assignment_count` + 1 to obtain the average feature representations for each cluster.
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    usz_extra_shape = (N_extra,) + (1,) * (extra_feature.dim()-1)
+    usz_cluster_shape = (N_clust,) + (1,)*(feature.dim()-1)
+
+    cluster_assignment = cluster_assignment.view(usz_extra_shape).broadcast_to(extra_feature.shape)
+    cluster_sum = torch.scatter_add(feature, dim=0, index=cluster_assignment, src=extra_feature)
+    cluster_assignment_count = cluster_assignment_count.view(usz_cluster_shape).broadcast_to(feature.shape)
+    cluster_average = cluster_sum / (cluster_assignment_count+1)
+
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
@@ -367,7 +454,7 @@ def cluster_average(feature, extra_feature, cluster_assignment, cluster_assignme
 
 def summarize_clusters(features):
     """
-    Calculates cluster summaries by applying cluster averaging to the MSA amino acid 
+    Calculates cluster summaries by applying cluster averaging to the MSA amino acid
     representations and deletion counts.
 
     Args:
@@ -375,7 +462,7 @@ def summarize_clusters(features):
 
     Modifies:
         The 'features' dictionary in-place by adding the following:
-            * cluster_deletion_mean: Average deletion counts for each cluster center, 
+            * cluster_deletion_mean: Average deletion counts for each cluster center,
                                      scaled for numerical stability.
             * cluster_profile: Average amino acid representations for each cluster center.
     """
@@ -386,8 +473,8 @@ def summarize_clusters(features):
     ##########################################################################
     # TODO:
     # 1. **Calculate Cluster Deletion Means:**
-    #     * Employ the `cluster_average` function to calculate the average deletion counts for each cluster using  'msa_deletion_count' and related features from the 'features' dictionary. 
-    #     * Apply the transformation `2/torch.pi * torch.arctan(x/3)` to the computed cluster deletion means to map them between -1 and 1. 
+    #     * Employ the `cluster_average` function to calculate the average deletion counts for each cluster using  'msa_deletion_count' and related features from the 'features' dictionary.
+    #     * Apply the transformation `2/torch.pi * torch.arctan(x/3)` to the computed cluster deletion means to map them between -1 and 1.
     # 2. **Calculate Cluster Profiles:**
     #      * Use the `cluster_average` function again to calculate the average amino acid representations for each cluster, using 'msa_aatype' and its corresponding 'extra' feature from the 'features' dictionary.
     #      * Note that at this point, `msa_aatype` is of shape (*, 23), while `extra_msa_aatype` is of shape (*, 22), as the cluster centers were masked. This conflicts with some PyTorch versions, therefore you need to zero-pad `extra_msa_aatype` to match the shape (*, 23).
@@ -409,13 +496,13 @@ def crop_extra_msa(features, max_extra_msa_count=5120, seed=None):
     Args:
         features: A dictionary containing feature representations of the MSA.
         max_extra_msa_count: The maximum number of extra sequences to retain.
-        seed: An optional integer seed for the random number generator. 
+        seed: An optional integer seed for the random number generator.
               Use this to ensure reproducibility.
 
     Modifies:
         The  'features' dictionary in-place by cropping the following keys to include
         only the first 'max_extra_msa_count' sequences:
-            * Any key starting with 'extra_' 
+            * Any key starting with 'extra_'
     """
 
     N_extra = features['extra_msa_aatype'].shape[0]
@@ -433,7 +520,7 @@ def crop_extra_msa(features, max_extra_msa_count=5120, seed=None):
     # 2. **Select Subset:**
     #     * Slice the random permutation to select the first `max_extra_msa_count` indices.
     # 3. **Crop Features:**
-    #     * Iterate through the `features` dictionary.  For each key that starts with  'extra_', slice the corresponding value using the selected indices to retain only the first `max_extra_msa_count` sequences.  
+    #     * Iterate through the `features` dictionary.  For each key that starts with  'extra_', slice the corresponding value using the selected indices to retain only the first `max_extra_msa_count` sequences.
     ##########################################################################
 
     # Replace "pass" statement with your code
@@ -454,9 +541,9 @@ def calculate_msa_feat(features):
 
     Returns:
         A tensor of shape (N_clust, N_res, 49) representing the final MSA features,
-        formed by concatenating processed cluster information and deletion-related values. 
+        formed by concatenating processed cluster information and deletion-related values.
     """
-    
+
     N_clust, N_res = features['msa_aatype'].shape[:2]
     msa_feat = None
 
@@ -471,9 +558,9 @@ def calculate_msa_feat(features):
     #     * Calculate:
     #         - `cluster_has_deletion`: Boolean tensor of shape (N_clust, N_res, 1) indicating the presence of deletions. Calculated from 'msa_deletion_count'.
     #         - `cluster_deletion_value`: 2/pi*arctan(x/3)-normalized msa_deletion_count of shape (N_clust, N_res, 1). Calculated from 'msa_deletion_count'.
-    # 2. **Concatenate Features:** 
-    #     * Use `torch.cat` to concatenate the following tensors, in this order, along the last dimension to create the final 'msa_feat' tensor: 
-    #          - `cluster_msa` 
+    # 2. **Concatenate Features:**
+    #     * Use `torch.cat` to concatenate the following tensors, in this order, along the last dimension to create the final 'msa_feat' tensor:
+    #          - `cluster_msa`
     #          - `cluster_has_deletion`
     #          - `cluster_deletion_value`
     #          - `cluster_profile`
@@ -491,9 +578,9 @@ def calculate_msa_feat(features):
 
 def calculate_extra_msa_feat(features):
     """
-    Prepares the extra MSA feature representation for protein structure prediction. 
+    Prepares the extra MSA feature representation for protein structure prediction.
     This function is similar to 'calculate_msa_feat' but operates on  extra MSA sequences
-    and includes padding of extra_msa_aatype to match the shape of msa_aatype. 
+    and includes padding of extra_msa_aatype to match the shape of msa_aatype.
 
     Args:
         features: A dictionary containing feature representations of the MSA.
@@ -514,10 +601,10 @@ def calculate_extra_msa_feat(features):
     #     * Calculate:
     #         - `extra_msa_has_deletion`: Boolean tensor of shape (N_extra, N_res, 1) indicating the presence of deletions.
     #         - `extra_msa_deletion_value`: 2/pi*arctan(x/3)-normalized deletion count of shape (N_extra, N_res, 1).
-    # 2. **Pad and Concatenate Features:** 
+    # 2. **Pad and Concatenate Features:**
     #     * Create a zero padding tensor of shape (N_extra, N_res, 1).
     #     * Concatenate the `extra_msa_aatype` and zero padding along the last dimension.
-    #     * Use `torch.cat` to concatenate the following tensors, in this order, along the last dimension to create the final 'extra_msa_feat' tensor: 
+    #     * Use `torch.cat` to concatenate the following tensors, in this order, along the last dimension to create the final 'extra_msa_feat' tensor:
     #          - `extra_msa` (with padding)
     #          - `extra_msa_has_deletion`
     #          - `extra_msa_deletion_value`
@@ -538,7 +625,7 @@ def create_features_from_a3m(file_name, seed=None):
     """
     Creates feature representations for an MSA from its A3M file.
 
-    This function orchestrates a sequence of transformations on the raw MSA sequences to 
+    This function orchestrates a sequence of transformations on the raw MSA sequences to
     produce features suitable for protein structure prediction.
 
     Args:
@@ -548,9 +635,9 @@ def create_features_from_a3m(file_name, seed=None):
         A dictionary containing the following feature representations for the MSA:
            * msa_feat: A tensor containing the final MSA feature representation.
            * extra_msa_feat: A tensor containing the final extra MSA feature representation.
-           * target_feat: A tensor containing a one-hot encoded representation of the 
+           * target_feat: A tensor containing a one-hot encoded representation of the
                           target protein sequence (excluding gaps and masked tokens).
-           * residue_index: A tensor containing the residue indices (0, 1, ..., N_res-1). 
+           * residue_index: A tensor containing the residue indices (0, 1, ..., N_res-1).
     """
 
     msa_feat = None
@@ -564,7 +651,7 @@ def create_features_from_a3m(file_name, seed=None):
         select_clusters_seed = seed
         mask_clusters_seed = seed+1
         crop_extra_seed = seed+2
-        
+
 
     ##########################################################################
     # TODO:
@@ -572,12 +659,12 @@ def create_features_from_a3m(file_name, seed=None):
     #     * Use `load_a3m_file` to read the A3M file and extract a list of raw MSA sequences.
     # 2. **Initial Features:**
     #     * Call `initial_data_from_seqs` to create initial feature representations from the raw  sequences. This will include one-hot encoded amino acids,  deletion counts, and an amino acid distribution ('aa_distribution').
-    # 3. **Feature Transformations:**  
-    #     * Define a list of transformation functions.  This should include `select_cluster_centers`, `mask_cluster_centers`, `cluster_assignment`, `summarize_clusters`, and `crop_extra_msa`.  
+    # 3. **Feature Transformations:**
+    #     * Define a list of transformation functions.  This should include `select_cluster_centers`, `mask_cluster_centers`, `cluster_assignment`, `summarize_clusters`, and `crop_extra_msa`.
     #       Set the according seeds to select_clusters_seed, mask_clusters_seed and crop_extra_seed.
     #       You can use lambda x: f(x, seed=n) to set the seed for the functions
     #       while ensuring that they can be called as `f(x)`.
-    #     * Iterate through the `transforms` list, applying each transformation function in  sequence to the `features` dictionary.  
+    #     * Iterate through the `transforms` list, applying each transformation function in  sequence to the `features` dictionary.
     # 4. **Final Features:**
     #      * Calculate the final MSA feature representations using `calculate_msa_feat`.
     #      * Calculate the final extra MSA feature representations using `calculate_extra_msa_feat`.
@@ -648,4 +735,4 @@ if __name__=='__main__':
     # print((batch['extra_msa_feat']-extra_msa_feat).abs().max())
 
 
-    
+

@@ -1,7 +1,8 @@
 import torch
 import math
-from torch import nn
+from torch import _scaled_dot_product_attention_math, isin, nn
 import einops
+from torch.serialization import validate_cuda_device
 
 class MultiHeadAttention(nn.Module):
     """
@@ -39,7 +40,7 @@ class MultiHeadAttention(nn.Module):
         self.c = c
         self.N_head = N_head
         self.gated = gated
-        self.attn_dim = attn_dim
+        self.attn_dim = attn_dim if attn_dim is not None else 1
         self.is_global = is_global
 
         ##########################################################################
@@ -51,11 +52,19 @@ class MultiHeadAttention(nn.Module):
         #   linear_o and linear_g.                                               #
         ##########################################################################
 
-        # Replace "pass" statement with your code
         self.use_bias_for_embeddings = use_bias_for_embeddings
-        self.linear_q = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
-        self.linear_k = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
-        self.linear_v = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
+       # Replace "pass" statement with your ode
+        if self.is_global:
+            self.linear_q = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
+            # we just use one Head for keys and values
+            self.linear_k = nn.Linear(self.c_in, self.c, bias= self.use_bias_for_embeddings)
+            self.linear_v = nn.Linear(self.c_in, self.c, bias= self.use_bias_for_embeddings)
+        else:
+            self.linear_q = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
+            self.linear_k = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
+            self.linear_v = nn.Linear(self.c_in, self.c * self.N_head, bias= self.use_bias_for_embeddings)
+
+
 
         self.linear_o = nn.Linear(self.c * self.N_head, self.c_in, bias=True)
         if self.gated:
@@ -104,9 +113,6 @@ class MultiHeadAttention(nn.Module):
         k = torch.reshape(k, new_shape)
         k = k.movedim(-2, -3)
 
-
-
-
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
@@ -136,8 +142,19 @@ class MultiHeadAttention(nn.Module):
         #   torch.mean for the contraction of q at the end of this function.     #
         ##########################################################################
 
-        # Replace "pass" statement with your code
-        pass
+        v = torch.movedim(v, self.attn_dim, -2)
+        v = torch.unsqueeze(v, -3)
+        k = torch.movedim(k, self.attn_dim, -2)
+        k = torch.unsqueeze(k, -3)
+        q = q.movedim(self.attn_dim, -2)
+        new_shape = q.shape[:-1] + (self.N_head, self.c)
+        q = torch.reshape(q, new_shape)
+        q = q.movedim(-2, -3)
+        q = torch.mean(q, -2, keepdim=True)
+
+        return q, k, v       # Replace "pass" statement with your code
+
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -204,10 +221,52 @@ class MultiHeadAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+
+
+        query = self.linear_q(x)
+        value = self.linear_v(x)
+        key = self.linear_k(x)
+
+        # rearrange:
+        if self.is_global:
+            Q, K, V = self.prepare_qkv_global(q=query, k=key, v=value)
+        else:
+            Q, K, V = self.prepare_qkv(q=query, k=key, v=value)
+
+        scaled_q = Q * (1 / math.sqrt(self.c))
+        attn_weigths = torch.einsum('...qc, ...kc->...qk', scaled_q, K)
+
+
+
+        if bias is not None:
+            bias_batch_shape = bias.shape[:-3]
+            bias_bc_shape = bias_batch_shape + (1,) * (attn_weigths.ndim - len(bias_batch_shape)-3) + bias.shape[-3:]
+            bias = bias.view(bias_bc_shape)
+            attn_weigths = attn_weigths + bias
+        #mask
+        if attention_mask is not None:
+            attention_mask = attention_mask[..., None, None, :]
+            offset = (attention_mask==0)* -1e8
+            attn_weigths = attn_weigths + offset
+
+        probs = torch.softmax(attn_weigths, dim=-1)
+
+        weighted_val = torch.einsum('...qk, ...kc->...qc', probs, V)
+        weighted_val = weighted_val.transpose(-3, -2)
+        weighted_val = torch.flatten(weighted_val, start_dim=-2)
+        weighted_val = weighted_val.moveaxis(-2, self.attn_dim)
+        if self.gated:
+            gated_val = torch.sigmoid(self.linear_g(x))
+
+            # Now safe to multiply
+            weighted_val = weighted_val * gated_val
+
+        #linear mapping
+        out = self.linear_o(weighted_val)
+
 
         ##########################################################################
-        #               END OF YOUR CODE                                         #
+        #           END OF YOUR CODE                                         #
         ##########################################################################
 
         return out
