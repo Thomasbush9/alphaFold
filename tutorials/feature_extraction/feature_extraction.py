@@ -631,7 +631,18 @@ def calculate_extra_msa_feat(features):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    extra_msa_aatype = features['extra_msa_aatype']
+    extra_msa_deletion_count = features['extra_msa_deletion_count']
+
+    extra_msa_has_deletion = (extra_msa_deletion_count > 0).float().unsqueeze(-1)
+    extra_msa_deletion_value = 2 / torch.pi * torch.arctan(extra_msa_deletion_count/3)
+    extra_msa_deletion_value = extra_msa_deletion_value.unsqueeze(-1)
+
+    extra_pad_t = torch.zeros((N_extra, N_res, 1))
+    extra_msa_aatype = torch.cat((extra_msa_aatype, extra_pad_t), -1)
+    extra_msa_feat = torch.cat((extra_msa_aatype, extra_msa_has_deletion, extra_msa_deletion_value), -1)
+
+
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
