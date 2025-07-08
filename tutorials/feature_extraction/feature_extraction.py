@@ -468,7 +468,7 @@ def summarize_clusters(features):
     """
 
     N_clust, N_res = features['msa_aatype'].shape[:2]
-    N_extra = features['extra_msa_aatype'].shape[0]
+
 
     ##########################################################################
     # TODO:
@@ -481,7 +481,14 @@ def summarize_clusters(features):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    cluster_deletion_means = cluster_average(features['msa_deletion_count'], features['extra_msa_deletion_count'],
+                          features['cluster_assignment'], features['cluster_assignment_counts'])
+    features['cluster_deletion_mean'] = 2/torch.pi * torch.arctan(cluster_deletion_means/3)
+
+
+    features['cluster_profile'] = cluster_average(features['msa_aatype'], features['extra_msa_aatype'],
+                                         features['cluster_assignment'], features['cluster_assignment_counts'])
+
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
@@ -524,7 +531,11 @@ def crop_extra_msa(features, max_extra_msa_count=5120, seed=None):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    idxs = torch.randperm(N_extra, generator=gen)
+    sliced_perm = idxs[:max_extra_msa_count]
+    for key, value in features.items():
+        if 'extra' in key:
+            features[key] = value[sliced_perm]
 
     ##########################################################################
     # END OF YOUR CODE                                                       #
