@@ -26,7 +26,11 @@ class MSARowAttentionWithPairBias(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.layer_norm_m = nn.LayerNorm(c_m)
+        self.layer_norm_z = nn.LayerNorm(c_z)
+        self.linear_z = nn.Linear(c_z, N_head, bias=False)
+        self.mha = MultiHeadAttention(c_in=c_m, c=c, N_head=N_head, attn_dim=-2, gated=True)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -51,7 +55,13 @@ class MSARowAttentionWithPairBias(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        m = self.layer_norm_m(m)
+        z = self.layer_norm_z(z)
+        z = self.linear_z(z)
+        b = z.moveaxis(-1, -3)
+
+
+        out = self.mha(m, bias=b)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -79,7 +89,9 @@ class MSAColumnAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.layer_norm_m = nn.LayerNorm(c_m)
+        self.mha = MultiHeadAttention(c_in=c_m, c=c, N_head=N_head, gated=True, attn_dim=-3)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -103,7 +115,9 @@ class MSAColumnAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        m = self.layer_norm_m(m)
+        out = self.mha(m)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -122,7 +136,7 @@ class MSATransition(nn.Module):
 
         Args:
             c_m (int): Embedding dimension of the MSA representation.
-            n (int, optional): Factor for the number of channels in the intermediate dimension. 
+            n (int, optional): Factor for the number of channels in the intermediate dimension.
              Defaults to 4.
         """
         super().__init__()
@@ -133,7 +147,10 @@ class MSATransition(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.layer_norm = nn.LayerNorm(c_m)
+        self.linear_1 = nn.Linear(c_m, n*c_m)
+        self.act1 = nn.ReLU()
+        self.linear_2 = nn.Linear(n*c_m, c_m)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -156,8 +173,7 @@ class MSATransition(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
-
+        out = self.linear_2(self.act1(self.linear_1(self.layer_norm(m))))
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
@@ -174,12 +190,12 @@ class OuterProductMean(nn.Module):
 
         Args:
             c_m (int): Embedding dimension of the MSA representation.
-            c_z (int): Embedding dimension of the pair representation. 
-            c (int, optional): Embedding dimension of a and b from Algorithm 10. 
+            c_z (int): Embedding dimension of the pair representation.
+            c (int, optional): Embedding dimension of a and b from Algorithm 10.
                 Defaults to 32.
         """
         super().__init__()
-        
+
         ##########################################################################
         # TODO: Initialize the modules layer_norm, linear_1, linear_2 and        #
         #   linear_out for Algorithm 10. linear_1 creates the embdding for a,    #
@@ -187,7 +203,11 @@ class OuterProductMean(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.layer_norm = nn.LayerNorm(c_m)
+        self.linear_1 = nn.Linear(c_m, c)
+        self.linear_2 = nn.Linear(c_m, c)
+        self.linear_out = nn.Linear(c**2, c_z)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -222,7 +242,15 @@ class OuterProductMean(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        m = self.layer_norm(m)
+        a = self.linear_1(m)
+        b = self.linear_2(m)
+        # a, b = (..., N_seq, N_res, c)
+        outer_p = torch.einsum('...ei,...sj->...esij', a, b)
+        out = outer_p.sum(dim=-5)
+        out = torch.flatten(out, start_dim=-2, end_dim=-1)
+        out = self.linear_out(out)
+        z = out / N_seq
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
