@@ -35,7 +35,15 @@ class TriangleMultiplication(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.layer_norm_in = nn.LayerNorm(c_z)
+        self.layer_norm_out = nn.LayerNorm(c)
+        self.linear_a_p = nn.Linear(c_z, c)
+        self.linear_a_g = nn.Linear(c_z, c)
+
+        self.linear_b_p = nn.Linear(c_z, c)
+        self.linear_b_g = nn.Linear(c_z, c)
+        self.linear_g = nn.Linear(c_z, c_z)
+        self.linear_z = nn.Linear(c, c_z)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -64,7 +72,21 @@ class TriangleMultiplication(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        z = self.layer_norm_in(z)
+        a = torch.sigmoid(self.linear_a_p(z)) * self.linear_a_g(z)
+        b = torch.sigmoid(self.linear_b_p(z)) * self.linear_b_g(z)
+        g = torch.sigmoid(self.linear_g(z))
+
+        if self.mult_type == 'outgoing':
+            t = torch.einsum('...ikc,...jkc->...ijc', a, b)
+        elif self.mult_type == 'incoming':
+            t = torch.einsum('...kic,...kjc->...ijc', a, b)
+
+        out = g * self.linear_z(self.layer_norm_out(t))
+
+
+
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -149,15 +171,15 @@ class PairTransition(nn.Module):
     """
     Implements Algorithm 15.
     """
-    
+
     def __init__(self, c_z, n=4):
         """
         Initializes the PairTransition.
 
         Args:
             c_z (int): Embedding dimension of the pair representation.
-            n (int, optional): Factor by which the number of intermediate channels 
-                expands the original number of channels. 
+            n (int, optional): Factor by which the number of intermediate channels
+                expands the original number of channels.
                 Defaults to 4.
         """
         super().__init__()
@@ -183,9 +205,9 @@ class PairTransition(nn.Module):
         Returns:
             torch.tensor: Output tensor of the same shape as z.
         """
-        
+
         out = None
-        
+
         ##########################################################################
         # TODO: Implement the forward pass for Algorithm 15.                     #
         ##########################################################################
@@ -239,7 +261,7 @@ class PairStack(nn.Module):
         """
 
         out = None
-        
+
         ##########################################################################
         # TODO: Implement the forward pass for the pair stack from Algorithm 6.  #
         ##########################################################################
@@ -250,6 +272,6 @@ class PairStack(nn.Module):
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
-        
+
         return out
-        
+
