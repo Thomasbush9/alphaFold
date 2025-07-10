@@ -1,3 +1,4 @@
+from math import ceil
 from torch import nn
 from attention.mha import MultiHeadAttention
 from evoformer.dropout import DropoutRowwise
@@ -112,7 +113,6 @@ class MSAColumnGlobalAttention(nn.Module):
         # Replace "pass" statement with your code
         m = self.layer_norm_m(m)
         out = self.global_attention(m)
-        pass
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -145,7 +145,13 @@ class ExtraMsaBlock(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        #TODO add the dropout
+        self.msa_att_row = MSARowAttentionWithPairBias(c_e, c_z, c=8)
+        self.msa_att_col = MSAColumnGlobalAttention(c_e, c_z)
+        self.msa_transition = MSATransition(c_e)
+        self.outer_product_mean = OuterProductMean(c_e, c_z)
+        self.core = PairStack(c_z=c_z)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -169,7 +175,15 @@ class ExtraMsaBlock(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        e =  e + self.msa_att_row(e,z)
+        e = e + self.msa_att_col(e)
+        e = e + self.msa_transition(e)
+
+        z = z+ self.outer_product_mean(e)
+        z = z + self.core(z)
+
+
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
