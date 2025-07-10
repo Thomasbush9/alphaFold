@@ -91,7 +91,8 @@ class EvoformerStack(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.blocks= nn.ModuleList([EvoformerBlock(c_m, c_z) for block in range(num_blocks)])
+        self.linear = nn.Linear(c_m, c_s)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -119,7 +120,10 @@ class EvoformerStack(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        for block in self.blocks:
+            m, z = block(m, z)
+        s = self.linear(m[..., 0, :, :])
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
