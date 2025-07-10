@@ -65,6 +65,7 @@ def test_module_shape(module, test_name, control_folder):
 
     for name, param_shape in param_shapes.items():
         assert param_shape == expected_shapes[name], f'Invalid shape for parameter {name}.'
+
             
 
     

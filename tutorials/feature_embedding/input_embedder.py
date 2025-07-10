@@ -14,9 +14,9 @@ class InputEmbedder(nn.Module):
             c_m (int): Embedding dimension of the MSA representation.
             c_z (int): Embedding dimension of the pair representation.
             tf_dim (int): Embedding dimension of target_feat.
-            msa_feat_dim (int, optional): Embedding dimension of the MSA feature. 
+            msa_feat_dim (int, optional): Embedding dimension of the MSA feature.
                 Defaults to 49.
-            vbins (int, optional): Determines the bins for relpos as 
+            vbins (int, optional): Determines the bins for relpos as
                 (-vbins, -vbins+1,...,vbins). Defaults to 32.
         """
         super().__init__()
@@ -33,7 +33,13 @@ class InputEmbedder(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.linear_tf_z_i = nn.Linear(self.tf_dim, c_z)
+        self.linear_tf_z_j = nn.Linear(self.tf_dim, c_z)
+        self.linear_tf_m = nn.Linear(self.tf_dim, c_m)
+        self.linear_msa_m = nn.Linear(msa_feat_dim, c_m)
+        self.linear_relpos = nn.Linear(2*vbins+1, c_z)
+
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -48,7 +54,7 @@ class InputEmbedder(nn.Module):
                 acid sequence. In this context, this is simply [0,... N_res-1].
 
         Returns:
-            tuple: Tuple consisting of the embedded MSA representation m and 
+            tuple: Tuple consisting of the embedded MSA representation m and
                 pair representation z.
         """
 
@@ -78,7 +84,7 @@ class InputEmbedder(nn.Module):
         ##########################################################################
 
         return out
-        
+
 
     def forward(self, batch):
         """
