@@ -84,10 +84,6 @@ class TriangleMultiplication(nn.Module):
 
         out = g * self.linear_z(self.layer_norm_out(t))
 
-
-
-
-
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
@@ -116,6 +112,7 @@ class TriangleAttention(nn.Module):
             raise ValueError(f'node_type must be either "starting_node" or "ending_node" but is {node_type}')
 
         self.node_type = node_type
+        self.N_head= N_head
 
         ##########################################################################
         # TODO: Initialize the modules layer_norm, mha and linear.               #
@@ -128,7 +125,15 @@ class TriangleAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+
+        self.layer_norm = nn.LayerNorm(c_z)
+        if node_type == 'starting_node':
+            attn_dim = -2
+        else:
+            attn_dim = -3
+
+        self.mha = MultiHeadAttention(c_z, c, N_head, attn_dim, gated=True)
+        self.linear = nn.Linear(c_z, N_head, bias=False)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -159,7 +164,12 @@ class TriangleAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        z = self.layer_norm(z)
+        b = self.linear(z)
+        b = b.moveaxis(-1, -3)
+        if self.node_type == 'ending_node':
+            b = b.transpose(-1, -2)
+        out = self.mha(z, bias=b)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -189,7 +199,12 @@ class PairTransition(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.layer_norm = nn.LayerNorm(c_z)
+        self.linear_1 = nn.Linear(c_z, n*c_z)
+        self.relu = nn.ReLU()
+        self.linear_2 = nn.Linear(n*c_z, c_z)
+
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -213,7 +228,8 @@ class PairTransition(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        out = self.linear_2(self.relu(self.linear_1(self.layer_norm(z))))
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #

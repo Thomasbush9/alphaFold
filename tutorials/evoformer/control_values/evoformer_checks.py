@@ -44,6 +44,7 @@ def test_module_shape(module, test_name, control_folder):
         raise AssertionError(error_message)
 
     for name, param_shape in param_shapes.items():
+        # print(f'{name}: got {param_shape}, expected {expected_shapes[name]}')
         assert param_shape == expected_shapes[name], f'Invalid shape for parameter {name}.'
             
 
