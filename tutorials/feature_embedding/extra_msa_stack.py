@@ -8,7 +8,7 @@ class ExtraMsaEmbedder(nn.Module):
     """
     Creates the embeddings of extra_msa_feat for the Extra MSA Stack.
     """
-    
+
     def __init__(self, f_e, c_e):
         """
         Initializes the ExtraMSAEmbedder.
@@ -18,13 +18,13 @@ class ExtraMsaEmbedder(nn.Module):
             c_e (int): Embedding dimension of the extra_msa_feat.
         """
         super().__init__()
-        
+
         ##########################################################################
         # TODO: Initialize the module self.linear for the extra MSA embedding.   #
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.linear = nn.Linear(f_e, c_e)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -51,7 +51,7 @@ class ExtraMsaEmbedder(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        out = self.linear(e)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -63,7 +63,7 @@ class MSAColumnGlobalAttention(nn.Module):
     """
     Implements Algorithm 19.
     """
-    
+
     def __init__(self, c_m, c_z, c=8, N_head=8):
         """
         Initializes MSAColumnGlobalAttention.
@@ -84,7 +84,9 @@ class MSAColumnGlobalAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.layer_norm_m = nn.LayerNorm(c_m)
+        self.global_attention = MultiHeadAttention(c_in=c_m, c=c, attn_dim=-2,N_head=N_head,gated=True, is_global=True)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -102,12 +104,14 @@ class MSAColumnGlobalAttention(nn.Module):
         """
 
         out = None
-        
+
         ##########################################################################
         # TODO: Implement the forward pass for Algorithm 19.                     #
         ##########################################################################
 
         # Replace "pass" statement with your code
+        m = self.layer_norm_m(m)
+        out = self.global_attention(m)
         pass
 
         ##########################################################################
@@ -121,7 +125,7 @@ class ExtraMsaBlock(nn.Module):
     """
     Implements one block for Algorithm 18.
     """
-    
+
     def __init__(self, c_e, c_z):
         """
         Initializes ExtraMSABlock.
@@ -172,14 +176,14 @@ class ExtraMsaBlock(nn.Module):
         ##########################################################################
 
         return e, z
-        
+
 
 
 class ExtraMsaStack(nn.Module):
     """
     Implements Algorithm 18.
     """
-    
+
     def __init__(self, c_e, c_z, num_blocks):
         """
         Initializes the ExtraMSAStack.

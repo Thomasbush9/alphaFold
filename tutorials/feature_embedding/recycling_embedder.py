@@ -85,11 +85,6 @@ class RecyclingEmbedder(nn.Module):
         z_out = d + self.layer_norm_z(z_prev)
         m_out = self.layer_norm_m(m_prev[..., 0, :, :])
 
-
-
-
-
-
         ##########################################################################
         # END OF YOUR CODE                                                       #
         ##########################################################################
