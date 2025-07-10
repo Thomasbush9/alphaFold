@@ -15,7 +15,9 @@ class SharedDropout(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.shared_dim = shared_dim
+        self.dropout = nn.Dropout(p=p)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -45,7 +47,10 @@ class SharedDropout(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        mask_shape = list(x.shape)
+        mask_shape[self.shared_dim] = 1
+        mask = torch.ones(tuple(mask_shape))
+        out = self.dropout(mask) * x
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -61,7 +66,8 @@ class DropoutRowwise(SharedDropout):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        super().__init__()
+        self.shared_dim = -3
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -73,9 +79,10 @@ class DropoutColumnwise(SharedDropout):
         # TODO: Initialize the super class by choosing the right shared          #
         #        dimension for column-wise dropout.                              #
         ##########################################################################
+        super().__init__()
+        self.shared_dim = -2
 
         # Replace "pass" statement with your code
-        pass
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
