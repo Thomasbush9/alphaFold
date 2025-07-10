@@ -77,7 +77,15 @@ class InputEmbedder(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        residue_index = residue_index.long()
+        #outer diff
+        d_ij = residue_index.unsqueeze(-1) - residue_index.unsqueeze(-2)
+        d_ij = torch.clamp(d_ij, -self.vbins, self.vbins)
+
+        #offset
+        d_ij = d_ij + self.vbins
+        encodings = nn.functional.one_hot(d_ij)
+        out = self.linear_relpos(encodings.double())
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
