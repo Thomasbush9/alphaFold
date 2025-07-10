@@ -259,7 +259,11 @@ class PairStack(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.tri_mul_out = TriangleMultiplication(c_z,'outgoing')
+        self.tri_mul_in = TriangleMultiplication(c_z, 'incoming')
+        self.tri_att_start = TriangleAttention(c_z, node_type='starting_node')
+        self.tri_att_end = TriangleAttention(c_z, node_type='ending_node')
+        self.pair_transition = PairTransition(c_z)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -283,7 +287,13 @@ class PairStack(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        z = z + self.tri_mul_out(z)
+        z = z+ self.tri_mul_in(z)
+        z = z + self.tri_att_start(z)
+        z = z + self.tri_att_end(z)
+        z = z + self.pair_transition(z)
+        out = z
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
