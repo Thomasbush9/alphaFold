@@ -182,9 +182,6 @@ class ExtraMsaBlock(nn.Module):
         z = z+ self.outer_product_mean(e)
         z = z + self.core(z)
 
-
-
-
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
@@ -214,8 +211,7 @@ class ExtraMsaStack(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
-
+        self.blocks = nn.ModuleList([ExtraMsaBlock(c_e, c_z) for block in range(num_blocks)])
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
@@ -237,7 +233,9 @@ class ExtraMsaStack(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        for block in self.blocks:
+            e, z = block(e, z)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
