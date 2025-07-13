@@ -38,11 +38,6 @@ def create_3x3_rotation(ex, ey):
     ez = ez / torch.linalg.vector_norm(ez, dim=-1, keepdim=True)
     R = torch.stack([ex, ey, ez], dim=-1)
 
-
-
-
-
-
     ##########################################################################
     #               END OF YOUR CODE                                         #
     ##########################################################################
@@ -70,7 +65,9 @@ def quat_from_axis(phi, n):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    scalar = torch.cos(phi/2).unsqueeze(-1)
+    vect = torch.sin(phi/2).unsqueeze(-1)*n
+    q = torch.cat((scalar, vect), dim=-1)
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
@@ -102,7 +99,11 @@ def quat_mul(q1, q2):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    a_out = a1*a2 - torch.sum(v1*v2, dim=-1, keepdim=True)
+    v_out = a1*v2 + a2*v1 + torch.linalg.cross(v1, v2, dim=-1)
+
+    q_out = torch.cat((a_out, v_out), dim=-1)
+
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
