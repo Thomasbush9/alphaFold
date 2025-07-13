@@ -130,8 +130,12 @@ def conjugate_quat(q):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    a = q[...,0:1]
+    v = q[..., 1:]
 
+    #change v
+    v = v *-1
+    q_out = torch.cat((a, v), dim=-1)
     ##########################################################################
     #               END OF YOUR CODE                                         #
     ##########################################################################
@@ -159,7 +163,15 @@ def quat_vector_mul(q, v):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    q_star = conjugate_quat(q)
+    pad_shape = batch_shape + (1,)
+    pad = torch.zeros(pad_shape)
+    vect_padded = torch.cat((pad, v), dim=-1)
+    v_out = quat_mul(q, quat_mul(vect_padded, q_star))
+    v_out = v_out[..., 1:]
+
+
+
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
