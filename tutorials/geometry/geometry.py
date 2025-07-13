@@ -16,11 +16,11 @@ def create_3x3_rotation(ex, ey):
     Returns:
         torch.tensor: Rotation matrices of shape (*, 3, 3).
     """
-    
+
     R = None
-    
+
     ##########################################################################
-    # TODO: Orthonormalize ex and ey, then compute ez as their crossproduct. # 
+    # TODO: Orthonormalize ex and ey, then compute ez as their crossproduct. #
     #  Use torch.linalg.vector_norm to compute the norms for normalization.  #
     #  Orthogonalize ey against ex by subtracting the non-orthogonal part,   #
     #  ex * <ex, ey> from ey, after normalizing ex.                          #
@@ -31,7 +31,17 @@ def create_3x3_rotation(ex, ey):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    ex = ex / torch.linalg.vector_norm(ex, dim=-1, keepdim=True)
+    ey = ey - ex * torch.sum(ex*ey, dim=-1, keepdim=True)
+    ey = ey / torch.linalg.vector_norm(ey, dim=-1, keepdim=True)
+    ez = torch.linalg.cross(ex, ey, dim=-1)
+    ez = ez / torch.linalg.vector_norm(ez, dim=-1, keepdim=True)
+    R = torch.stack([ex, ey, ez], dim=-1)
+
+
+
+
+
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
@@ -55,8 +65,8 @@ def quat_from_axis(phi, n):
     q = None
 
     ##########################################################################
-    # TODO: Implement the method as described above. You might need to       # 
-    #   reshape phi to allow for broadcasting and concatenation.             # 
+    # TODO: Implement the method as described above. You might need to       #
+    #   reshape phi to allow for broadcasting and concatenation.             #
     ##########################################################################
 
     # Replace "pass" statement with your code
@@ -79,7 +89,7 @@ def quat_mul(q1, q2):
     Returns:
         torch.tensor: Quaternion of shape (*, 4).
     """
-    
+
     a1 = q1[...,0:1] # a1 has shape (*, 1)
     v1 = q1[..., 1:] # v1 has shape (*, 3)
     a2 = q2[...,0:1] # a2 has shape (*, 1)
@@ -88,7 +98,7 @@ def quat_mul(q1, q2):
     q_out = None
 
     ##########################################################################
-    # TODO: Implement batched quaternion multiplication.                     # 
+    # TODO: Implement batched quaternion multiplication.                     #
     ##########################################################################
 
     # Replace "pass" statement with your code
@@ -102,7 +112,7 @@ def quat_mul(q1, q2):
 
 def conjugate_quat(q):
     """
-    Calculates the conjugate of a quaternion, i.e. 
+    Calculates the conjugate of a quaternion, i.e.
     (a, -v) for q=(a, v).
 
     Args:
@@ -115,7 +125,7 @@ def conjugate_quat(q):
     q_out = None
 
     ##########################################################################
-    # TODO: Implement quaternion conjugation.                                # 
+    # TODO: Implement quaternion conjugation.                                #
     ##########################################################################
 
     # Replace "pass" statement with your code
@@ -129,8 +139,8 @@ def conjugate_quat(q):
 
 def quat_vector_mul(q, v):
     """
-    Rotates a vector by a quaternion according to q*v*q', where q' 
-    denotes the conjugate. The vector v is promoted to a quaternion 
+    Rotates a vector by a quaternion according to q*v*q', where q'
+    denotes the conjugate. The vector v is promoted to a quaternion
     by padding a 0 for the scalar aprt.
 
     Args:
@@ -144,7 +154,7 @@ def quat_vector_mul(q, v):
     v_out = None
 
     ##########################################################################
-    # TODO: Implement batched quaternion vector multiplication.              # 
+    # TODO: Implement batched quaternion vector multiplication.              #
     ##########################################################################
 
     # Replace "pass" statement with your code
@@ -165,9 +175,9 @@ def quat_to_3x3_rotation(q):
     """
 
     R = None
-    
+
     ##########################################################################
-    # TODO: Follow these steps to convert a quaternion to a rotation matrix: # 
+    # TODO: Follow these steps to convert a quaternion to a rotation matrix: #
     #   - Create the vectors [1.0,0.0,0.0], [0.0,1.0,0.0], [0.0,0.0,1.0].    #
     #       broadcast them to shape (*, 3) for batched use.                  #
     #   - Rotate these vectors by q and assemble the result into a matrix.   #
@@ -197,7 +207,7 @@ def assemble_4x4_transform(R, t):
     T = None
 
     ##########################################################################
-    # TODO: Implement the method in the following steps:                     # 
+    # TODO: Implement the method in the following steps:                     #
     #   - Concatenate R and t along the column axis.                         #
     #   - Build the pad [0,0,0,1] and broadcast it to shape (*, 1, 4)        #
     #   - Concatenate Rt and the pad along the row axis.                     #
@@ -242,8 +252,8 @@ def warp_3d_point(T, x):
     ##########################################################################
 
     return x_warped
-    
-    
+
+
 
 def create_4x4_transform(ex, ey, translation):
     """
@@ -253,7 +263,7 @@ def create_4x4_transform(ex, ey, translation):
     Args:
         ex (torch.tensor): Vector of shape (*, 3).
         ey (torch.tensor): Vector of shape (*, 3). Orthogonalized against ex before
-            used for the creation of the rotation matrix.  
+            used for the creation of the rotation matrix.
         translation (torch.tensor): Vector of shape (*, 3).
 
     Returns:
@@ -263,8 +273,8 @@ def create_4x4_transform(ex, ey, translation):
     T = None
 
     ##########################################################################
-    # TODO: Implement create_4x4_transform. This can be done in two lines,   # 
-    #   using the methods you constructed earlier.                           # 
+    # TODO: Implement create_4x4_transform. This can be done in two lines,   #
+    #   using the methods you constructed earlier.                           #
     ##########################################################################
 
     # Replace "pass" statement with your code
@@ -275,10 +285,10 @@ def create_4x4_transform(ex, ey, translation):
     ##########################################################################
 
     return T
-    
+
 def invert_4x4_transform(T):
     """
-    Inverts a 4x4 transform (R, t) according to 
+    Inverts a 4x4 transform (R, t) according to
     (R.T, -R.T @ t).
 
     Args:
@@ -288,10 +298,10 @@ def invert_4x4_transform(T):
         torch.tensor: Inverted transform of shape (*, 4, 4).
     """
 
-    inv_T = None 
+    inv_T = None
 
     ##########################################################################
-    # TODO: Implement the 4x4 transform inversion.                           # 
+    # TODO: Implement the 4x4 transform inversion.                           #
     ##########################################################################
 
     # Replace "pass" statement with your code
@@ -327,7 +337,7 @@ def makeRotX(phi):
     T = None
 
     ##########################################################################
-    # TODO: Build the rotation matrix described above. Assemble it together  # 
+    # TODO: Build the rotation matrix described above. Assemble it together  #
     #   with a translation of 0 to a 4x4 transformation.                     #
     ##########################################################################
 
@@ -340,7 +350,7 @@ def makeRotX(phi):
 
     return T
 
-    
+
 ### End of general geometry
 ### Start of AF specific geometry
 
@@ -349,10 +359,10 @@ def makeRotX(phi):
 def calculate_non_chi_transforms():
     """
     Calculates transforms for the following local backbone frames:
-    
+
     backbone_group: Identity
     pre_omega_group: Identity
-    phi_group: 
+    phi_group:
         ex: CA -> N
         ey: (1, 0, 0)
         t:  N
@@ -368,11 +378,11 @@ def calculate_non_chi_transforms():
     """
 
     non_chi_transforms = None
-    
+
     ##########################################################################
-    # TODO: Build the four non-chi transforms as described above. Stack them # 
+    # TODO: Build the four non-chi transforms as described above. Stack them #
     #   to build non_chi_transforms.                                         #
-    #   The transforms are built for every amino acid individually. You can  # 
+    #   The transforms are built for every amino acid individually. You can  #
     #   iterate over rigid_group_atom_position_map.values() to get the       #
     #   individual atom -> position maps for each amino acid. You can use    #
     #   enumerate(rigid_group_atom_position_map.values()) to iterate over    #
@@ -391,7 +401,7 @@ def calculate_non_chi_transforms():
 def calculate_chi_transforms():
     """
     Calculates transforms for the following local side-chain frames:
-    chi1: 
+    chi1:
         ex: CA   -> #SC0
         ey: CA   -> N
         t:  #SC0
@@ -411,7 +421,7 @@ def calculate_chi_transforms():
     #SC0 - #SC3 denote the names of the side-chain atoms.
     If the chi angles are not present for the amino acid according to
     chi_angles_mask, they are substituted by the Identity transform.
-    
+
 
     Returns:
         torch.tensor: Stacked transforms of shape (20, 4, 4, 4).
@@ -427,7 +437,7 @@ def calculate_chi_transforms():
     # This means, that the starting point is 0 in local coordinates.
 
     ##########################################################################
-    # TODO: Construct the chi transforms. You can follow these steps:        # 
+    # TODO: Construct the chi transforms. You can follow these steps:        #
     #   - Construct an empty tensor of shape (20, 4, 4, 4).                  #
     #   - Iterate over rigid_group_atom_position_map.items() to get the      #
     #       amino acids names and atom->position maps for each amino acid.   #
@@ -457,9 +467,9 @@ def precalculate_rigid_transforms():
     """
 
     rigid_transforms = None
-    
+
     ##########################################################################
-    # TODO: Concatenate the non-chi transforms and chi transforms.           # 
+    # TODO: Concatenate the non-chi transforms and chi transforms.           #
     ##########################################################################
 
     # Replace "pass" statement with your code
@@ -475,7 +485,7 @@ def compute_global_transforms(T, alpha, F):
     """
     Calculates global frames for each frame group of each amino acid
     by applying the global transform T and injecting rotation transforms
-    in between the side chain frames. 
+    in between the side chain frames.
     Implements Line 1 - Line 10 of Algorithm 24.
 
     Args:
@@ -497,7 +507,7 @@ def compute_global_transforms(T, alpha, F):
     ##########################################################################
     # TODO: Construct the global transforms, according to line 1 - line 10   #
     #   from Algorithm 24. You don't need to support batched use.            #
-    #   You can follow these steps:                                          #  
+    #   You can follow these steps:                                          #
     #   - Normalize alpha, so that its values represent (cos(phi), sin(phi)) #
     #   - Use `torch.unbind` to unbind alpha into omega, phi, psi, chi1,     #
     #       chi2, chi3, and chi4.                                            #
@@ -527,7 +537,7 @@ def compute_global_transforms(T, alpha, F):
 
 def compute_all_atom_coordinates(T, alpha, F):
     """
-    Implements Algorithm 24. 
+    Implements Algorithm 24.
 
     Args:
         T (torch.tensor): Global backbone transform for each amino acid. Shape (N_res, 4, 4).
@@ -550,7 +560,7 @@ def compute_all_atom_coordinates(T, alpha, F):
     dtype = T.dtype
 
     ##########################################################################
-    # TODO: Implement Algorithm 24. You can follow these steps:              # 
+    # TODO: Implement Algorithm 24. You can follow these steps:              #
     #   - build the global frames using compute_global_transforms.           #
     #   - retrieve atom_local_positions, atom_frame_inds, and atom_mask      #
     #       from residue_constants. Map them to the same device used by T,   #
@@ -562,7 +572,7 @@ def compute_all_atom_coordinates(T, alpha, F):
     #       [0,...,N_res], broadcasted to (N_res, N_atoms) into the first    #
     #       dimension, so that the shape matches the selected frame inds.    #
     #   - Pad the local positions with 1 to promote them to homogenous       #
-    #       coordinates. Warp them through the selected global frames by     #  
+    #       coordinates. Warp them through the selected global frames by     #
     #       batched matrix vector multiplication. You can use `torch.einsum` #
     #       to handle the dimensions.                                        #
     #   - Drop the 1 of the resulting homogenous coordinates to select the   #
