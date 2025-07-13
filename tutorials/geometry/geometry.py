@@ -165,12 +165,10 @@ def quat_vector_mul(q, v):
     # Replace "pass" statement with your code
     q_star = conjugate_quat(q)
     pad_shape = batch_shape + (1,)
-    pad = torch.zeros(pad_shape)
+    pad = torch.zeros(pad_shape,device=v.device, dtype=v.dtype)
     vect_padded = torch.cat((pad, v), dim=-1)
     v_out = quat_mul(q, quat_mul(vect_padded, q_star))
     v_out = v_out[..., 1:]
-
-
 
 
     ##########################################################################
@@ -197,8 +195,14 @@ def quat_to_3x3_rotation(q):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    batch_shape = q.shape[:-1]
+    eye = torch.eye(3, dtype=q.dtype, device=q.device)
+    eye = eye.broadcast_to(batch_shape+(3,3))
+    e1 = quat_vector_mul(q, eye[...,0])
+    e2 = quat_vector_mul(q, eye[...,1])
+    e3 = quat_vector_mul(q, eye[...,2])
 
+    R = torch.stack((e1,e2,e3), dim=-1)
     ##########################################################################
     #               END OF YOUR CODE                                         #
     ##########################################################################
