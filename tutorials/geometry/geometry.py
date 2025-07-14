@@ -238,10 +238,6 @@ def assemble_4x4_transform(R, t):
     pad[..., -1] = 1
     T = torch.cat((Rt, pad), dim=-2)
 
-
-
-
-
     ##########################################################################
     #               END OF YOUR CODE                                         #
     ##########################################################################
@@ -271,7 +267,12 @@ def warp_3d_point(T, x):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    batch_shape = x.shape[:-1]
+    pad = torch.ones(batch_shape + (1,), device=device, dtype=dtype)
+    x_padded = torch.cat((x, pad), dim=-1)
+    x_warped = torch.einsum('...ij, ...j->...i', T, x_padded)
+    x_warped = x_warped[..., :-1]
+
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
@@ -304,7 +305,8 @@ def create_4x4_transform(ex, ey, translation):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    R = create_3x3_rotation(ex, ey)
+    T = assemble_4x4_transform(R, translation)
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
@@ -331,7 +333,11 @@ def invert_4x4_transform(T):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    R = T[..., :3, :3]
+    t = T[..., :3, 3]
+    inv_R = R.transpose(-1, -2)
+    Rt = -torch.einsum('...ij, ...j->...i', inv_R, t)
+    inv_T = assemble_4x4_transform(inv_R, Rt)
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
@@ -368,7 +374,22 @@ def makeRotX(phi):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    e0 = torch.tensor([1., 0., 0.], device=device, dtype=dtype)           # (3,)
+    e0 = e0.expand(batch_shape + (3,)).unsqueeze(-1)                      # (*B,3,1)
+
+    e1 = torch.stack([torch.zeros_like(phi1), phi1,  phi2], dim=-1)       # (*B,3)
+    e1 = e1.unsqueeze(-1)                                                 # (*B,3,1)
+
+    e2 = torch.stack([torch.zeros_like(phi1),-phi2,  phi1], dim=-1).unsqueeze(-1)
+
+    R = torch.cat([e0, e1, e2], dim=-1)        # (*B,3,3)
+
+    t = torch.zeros(batch_shape + (3,), device=device, dtype=dtype)       # (*B,3)
+
+    T = assemble_4x4_transform(R, t)
+
+
+
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
