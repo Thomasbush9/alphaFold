@@ -1,3 +1,4 @@
+from types import prepare_class
 import torch
 from torch import nn
 # from tests.structure_module.residue_constants import rigid_group_atom_position_map, chi_angles_mask
@@ -434,7 +435,31 @@ def calculate_non_chi_transforms():
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    backbone_group = torch.eye(4).broadcast_to(20, 4, 4)
+    pre_omega_group = torch.eye(4).broadcast_to(20, 4, 4)
+    phi_group = torch.zeros((20, 4, 4))
+    psi_group = torch.zeros((20, 4, 4))
+
+    for n, atom_pos in enumerate(rigid_group_atom_position_map.values()):
+        ex_phi = atom_pos['N'] - atom_pos['CA']
+        ey_phi = torch.tensor([1.0, 0.0, 0.0])
+        aa_phi_group = create_4x4_transform(
+                ex=ex_phi,
+                ey=ey_phi,
+                translation=atom_pos['N'])
+        phi_group[n, ...] = aa_phi_group
+
+        ex_psi = atom_pos['C'] - atom_pos['CA']
+        ey_psi = atom_pos['CA'] - atom_pos['N']
+        aa_psi_group = create_4x4_transform(
+                ex=ex_psi,
+                ey = ey_psi,
+                translation=atom_pos['C'])
+        psi_group[n, ...] = aa_psi_group
+    non_chi_transforms = torch.stack((backbone_group, pre_omega_group, phi_group, psi_group), dim=1)
+
+
+
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
