@@ -1,3 +1,4 @@
+from contextlib import AbstractAsyncContextManager
 from types import prepare_class
 import torch
 from torch import nn
@@ -457,10 +458,6 @@ def calculate_non_chi_transforms():
                 translation=atom_pos['C'])
         psi_group[n, ...] = aa_psi_group
     non_chi_transforms = torch.stack((backbone_group, pre_omega_group, phi_group, psi_group), dim=1)
-
-
-
-
     ##########################################################################
     #               END OF YOUR CODE                                         #
     ##########################################################################
@@ -518,7 +515,25 @@ def calculate_chi_transforms():
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    chi_transforms = torch.zeros((20, 4, 4, 4))
+
+    for i, (aa, atom_pos) in enumerate(rigid_group_atom_position_map.items()):
+        for j in range(4):
+            if not chi_angles_mask[i][j]:
+                chi_transforms[i, j] = torch.eye(4)
+                continue
+            next_atom = chi_angles_chain[aa][j]
+            if j ==0:
+                ex = atom_pos[next_atom]-atom_pos['CA']
+                ey = atom_pos['N'] - atom_pos['CA']
+            else:
+                ex = atom_pos[next_atom]
+                ey = torch.tensor([-1.0, 0.0, 0.0])
+            chi_transforms[i, j, ...]= create_4x4_transform(
+                    ex=ex,
+                    ey=ey,
+                    translation=atom_pos[next_atom]
+                    )
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
@@ -542,7 +557,9 @@ def precalculate_rigid_transforms():
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    non_chi_transforms = calculate_non_chi_transforms()
+    chi_transforms = calculate_chi_transforms()
+    rigid_transforms = torch.cat((non_chi_transforms, chi_transforms), dim=-3)
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
