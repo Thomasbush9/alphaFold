@@ -613,7 +613,24 @@ def compute_global_transforms(T, alpha, F):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    #norm
+    alpha = alpha / torch.linalg.vector_norm(alpha, dim=-1,keepdim=True)
+    #unbind:
+    omega, phi, psi, chi1, chi2, chi3, chi4 = torch.unbind(alpha, dim=-2)
+    #get rigid transforms
+    rigid_transforms = precalculate_rigid_transforms().to(dtype=dtype, device=device)
+    #select transforms
+    local_transform = rigid_transforms[F]
+    global_transforms = torch.zeros_like(local_transform)
+
+    global_transforms[..., 0, :, :] = T
+    for i, ang in zip(range(1, 5), [omega, phi, psi, chi1]):
+        global_transforms[..., i, :, :] = \
+                T @ local_transform[..., i, :, :] @ makeRotX(ang)
+
+    for i, ang in zip(range(5, 8), [chi2, chi3, chi4]):
+        global_transforms[..., i, :, :] = \
+            global_transforms[..., i-1, :, :] @ local_transform[..., i, :, :] @ makeRotX(ang)
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
