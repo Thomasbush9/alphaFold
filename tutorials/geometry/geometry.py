@@ -683,7 +683,28 @@ def compute_all_atom_coordinates(T, alpha, F):
     ##########################################################################
 
     # Replace "pass" statement with your code
-    pass
+    global_transforms = compute_global_transforms(T, alpha, F)
+
+    atom_local_positions = residue_constants.atom_local_positions.to(device=device,dtype=dtype)
+    atom_frame_inds = residue_constants.atom_frame_inds.to(device=device)
+
+    atom_local_positions = atom_local_positions[F]
+    atom_frame_inds = atom_frame_inds[F]
+    dim_diff = global_transforms.ndim - atom_frame_inds.ndim
+    atom_frame_inds = atom_frame_inds.reshape(atom_frame_inds.shape + (1,) * dim_diff)
+    atom_frame_inds = atom_frame_inds.broadcast_to(atom_frame_inds.shape[:-dim_diff] + global_transforms.shape[-dim_diff:])
+    atom_frames = torch.gather(global_transforms, dim=-3, index=atom_frame_inds)
+
+    position_pad = torch.ones(atom_local_positions.shape[:-1]+(1,), device=device, dtype=dtype)
+    padded_local_positions = torch.cat((atom_local_positions, position_pad), dim=-1)
+
+    global_positions_padded = torch.einsum('...ijk,...ik->...ij', atom_frames, padded_local_positions)
+    global_positions = global_positions_padded[...,:3]
+
+    atom_mask = residue_constants.atom_mask.to(alpha.device)[F]
+
+
+
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
