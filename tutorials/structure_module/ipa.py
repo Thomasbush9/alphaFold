@@ -1,3 +1,4 @@
+
 import torch
 import math
 from torch import nn
@@ -234,7 +235,24 @@ class InvariantPointAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        # compute pairwise output:
+        pairwise_out = torch.einsum('...ijc, ...hij->...hic', z, att_scores).movedim(-3, -2)
+        pairwise_out = torch.flatten(pairwise_out, -2, -1)
+
+
+        v_out = torch.einsum('...hij,...hjc->...hic', att_scores, v)
+        v_out = v_out.movedim(-3, -2).flatten(start_dim=-2)
+        T_bc_qkv = T.view(T.shape[:-3] + (1, 1, -1, 4, 4))
+        vt = warp_3d_point(T_bc_qkv, vp)
+        v_att = torch.einsum('...hij, ...hkjp->...hkip', att_scores, vt)
+
+        T_inv = invert_4x4_transform(T_bc_qkv)
+        v_transformed = warp_3d_point(T_inv, v_att)
+        v_transformed = torch.einsum('...hpic->...ichp', v_transformed)
+        norm = torch.linalg.vector_norm(v_transformed,dim=-3, keepdim=True)
+        vp_out_norm = torch.flatten(norm, start_dim=-3)
+        vp_out= torch.flatten(v_transformed, start_dim=-3)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
