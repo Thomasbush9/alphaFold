@@ -63,7 +63,7 @@ class InvariantPointAttention(nn.Module):
         self.linear_out = nn.Linear(N_head*c_z+N_head*c+N_head*4*n_point_values, c_s)
 
         self.head_weights = nn.Parameter(torch.zeros((N_head,)))
-        self.gamma = nn.Softplus()
+        self.softplus = nn.Softplus()
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
@@ -172,8 +172,19 @@ class InvariantPointAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        wc = math.sqrt(2 / (9* self.n_query_points))
+        wl = math.sqrt(1/3)
+        gamma = self.softplus(self.head_weights).view((-1, 1, 1))
+        q = (1/math.sqrt(self.c)) * q
+        bias = self.linear_b(z).movedim(-1, -3)
+        qk = torch.einsum('...ic, ...jc->...ij', q, k)
+        T_bc_qkv = T.view(T.shape[:-3] + (1, 1, -1, 4, 4))
+        transformed_qp = warp_3d_point(T_bc_qkv, qp).unsqueeze(-2)
+        transformed_kp = warp_3d_point(T_bc_qkv, kp).unsqueeze(-3)
+        sq_dist = torch.sum((transformed_qp - transformed_kp)**2, dim=-1)
+        qpkp_term = gamma * wc / 2 * torch.sum(sq_dist, dim=-3)
 
+        att_scores = torch.softmax(wl * (qk + bias - qpkp_term), dim=-1)
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
