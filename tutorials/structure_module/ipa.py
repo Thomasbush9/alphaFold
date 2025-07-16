@@ -3,7 +3,7 @@ import torch
 import math
 from torch import nn
 
-from geometry.geometry import invert_4x4_transform, warp_3d_point
+from geometry.geometry import invert_4x4_transform, precalculate_rigid_transforms, warp_3d_point
 
 class InvariantPointAttention(nn.Module):
     """
@@ -282,7 +282,12 @@ class InvariantPointAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        q, k, v, qp, kp, vp = self.prepare_qkv(s)
+        att_scores = self.compute_attention_scores(q, k, qp, kp, z, T)
+        v_out, vp_out, vp_out_norm, pairwise_out = self.compute_outputs(att_scores, z, v, vp, T)
+        out = torch.cat((v_out, vp_out, vp_out_norm, pairwise_out), dim=-1)
+        out = self.linear_out(out)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
