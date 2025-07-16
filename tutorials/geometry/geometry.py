@@ -436,12 +436,16 @@ def calculate_non_chi_transforms():
     ##########################################################################
 
     # Replace "pass" statement with your code
+    # backbone group and pre omega == identity
     backbone_group = torch.eye(4).broadcast_to(20, 4, 4)
     pre_omega_group = torch.eye(4).broadcast_to(20, 4, 4)
+    #placeholder for phi, psi
     phi_group = torch.zeros((20, 4, 4))
     psi_group = torch.zeros((20, 4, 4))
 
+    # iterate through the atom position per residue
     for n, atom_pos in enumerate(rigid_group_atom_position_map.values()):
+        #phi group: n-ca (ex), ca-c ey (no heavy atoms)
         ex_phi = atom_pos['N'] - atom_pos['CA']
         ey_phi = torch.tensor([1.0, 0.0, 0.0])
         aa_phi_group = create_4x4_transform(
@@ -515,17 +519,23 @@ def calculate_chi_transforms():
     ##########################################################################
 
     # Replace "pass" statement with your code
+    # define the placeholder
     chi_transforms = torch.zeros((20, 4, 4, 4))
 
+    # we go through each residue atom coords, i is res idx
     for i, (aa, atom_pos) in enumerate(rigid_group_atom_position_map.items()):
+        # if for res i, the j chi squared is false put identity
         for j in range(4):
             if not chi_angles_mask[i][j]:
                 chi_transforms[i, j] = torch.eye(4)
                 continue
+            # next atom is res, j
             next_atom = chi_angles_chain[aa][j]
+            # chi1 connected to backbone ca
             if j ==0:
                 ex = atom_pos[next_atom]-atom_pos['CA']
                 ey = atom_pos['N'] - atom_pos['CA']
+            # if not first, we define the ex, ey relative
             else:
                 ex = atom_pos[next_atom]
                 ey = torch.tensor([-1.0, 0.0, 0.0])
@@ -619,12 +629,15 @@ def compute_global_transforms(T, alpha, F):
     omega, phi, psi, chi1, chi2, chi3, chi4 = torch.unbind(alpha, dim=-2)
     #get rigid transforms
     rigid_transforms = precalculate_rigid_transforms().to(dtype=dtype, device=device)
-    #select transforms
+    # select the transforms for the sequence
     local_transform = rigid_transforms[F]
     global_transforms = torch.zeros_like(local_transform)
 
+    # assign global backbone transform
     global_transforms[..., 0, :, :] = T
+    # iterate through the rigid group of the backbone
     for i, ang in zip(range(1, 5), [omega, phi, psi, chi1]):
+        # global transform: backbone, local
         global_transforms[..., i, :, :] = \
                 T @ local_transform[..., i, :, :] @ makeRotX(ang)
 
@@ -683,11 +696,13 @@ def compute_all_atom_coordinates(T, alpha, F):
     ##########################################################################
 
     # Replace "pass" statement with your code
+    # compute global transform per seq
     global_transforms = compute_global_transforms(T, alpha, F)
 
     atom_local_positions = residue_constants.atom_local_positions.to(device=device,dtype=dtype)
     atom_frame_inds = residue_constants.atom_frame_inds.to(device=device)
 
+    # select the position of the seq
     atom_local_positions = atom_local_positions[F]
     atom_frame_inds = atom_frame_inds[F]
     dim_diff = global_transforms.ndim - atom_frame_inds.ndim
@@ -698,13 +713,12 @@ def compute_all_atom_coordinates(T, alpha, F):
     position_pad = torch.ones(atom_local_positions.shape[:-1]+(1,), device=device, dtype=dtype)
     padded_local_positions = torch.cat((atom_local_positions, position_pad), dim=-1)
 
+    # apply the transform to the actual position for seq as mat mul
     global_positions_padded = torch.einsum('...ijk,...ik->...ij', atom_frames, padded_local_positions)
+    # drop last dim
     global_positions = global_positions_padded[...,:3]
 
     atom_mask = residue_constants.atom_mask.to(alpha.device)[F]
-
-
-
 
     ##########################################################################
     #               END OF YOUR CODE                                         #
