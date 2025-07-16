@@ -4,13 +4,13 @@ from torch import nn
 from structure_module.ipa import InvariantPointAttention
 from geometry.geometry import compute_all_atom_coordinates, assemble_4x4_transform, quat_to_3x3_rotation
 from geometry.geometry import residue_constants
-    
+
 
 class StructureModuleTransition(nn.Module):
     """
     Implements the transition in the Structure Module (lines 8 and 9 from Algorithm 20).
     """
-    
+
     def __init__(self, c_s):
         """
         Initializes StructureModuleTransition.
@@ -28,7 +28,11 @@ class StructureModuleTransition(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.linear_1 = nn.Linear(c_s, c_s)
+        self.relu = nn.ReLU()
+        self.linear_2 = nn.Linear(c_s, c_s)
+        self.linear_3 = nn.Linear(c_s, c_s)
+        self.layer_norm = nn.LayerNorm(c_s)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -51,7 +55,7 @@ class StructureModuleTransition(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        s = self.layer_norm(s + self.linear_3(self.relu(self.linear_2(self.relu(self.linear_1(s))))))
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -96,7 +100,7 @@ class BackboneUpdate(nn.Module):
         """
 
         T = None
-        
+
         ##########################################################################
         # TODO: Implement the forward pass with the following steps:             #
         #   - Pass s through the linear layer.                                   #
@@ -120,10 +124,10 @@ class BackboneUpdate(nn.Module):
 
 class AngleResNetLayer(nn.Module):
     """
-    Implements a layer of the AngleResNet for the Structure Module, 
+    Implements a layer of the AngleResNet for the Structure Module,
     which is line 12 or line 13 from Algorithm 20.
     """
-    
+
     def __init__(self, c):
         """
         Initializes AngleResNetLayer.
@@ -147,7 +151,7 @@ class AngleResNetLayer(nn.Module):
 
     def forward(self, a):
         """
-        Computes the forward pass as 
+        Computes the forward pass as
         a -> relu -> linear -> relu -> linear + a
 
         Args:
@@ -167,7 +171,7 @@ class AngleResNetLayer(nn.Module):
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
-         
+
         return a
 
 
@@ -175,7 +179,7 @@ class AngleResNet(nn.Module):
     """
     Implements the AngleResNet from the Structure Module (lines 11-14 in Algorithm 20).
     """
-    
+
     def __init__(self, c_s, c, n_torsion_angles=7):
         """
         Initializes the AngleResNet.
@@ -216,7 +220,7 @@ class AngleResNet(nn.Module):
         Returns:
             torch.tensor: Torsion angles of shape (*, N_res, 2*n_torsion_angles).
         """
-        
+
         alpha = None
 
         ##########################################################################
@@ -229,7 +233,7 @@ class AngleResNet(nn.Module):
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
-        
+
         return alpha
 
 
@@ -238,7 +242,7 @@ class StructureModule(nn.Module):
     """
     Implements the Structure Module according to Algorithm 20.
     """
-    
+
     def __init__(self, c_s, c_z, n_layer=8, c=128):
         """
         Initializes the Structure Module.
@@ -274,17 +278,17 @@ class StructureModule(nn.Module):
         from the backbone transforms, torsion angles and amino acid labels.
 
         Args:
-            T (torch.tensor): Backbone transforms of shape (*, N_res, 4, 4). Units 
-                are measured in nanometers (this affects only the translation). 
+            T (torch.tensor): Backbone transforms of shape (*, N_res, 4, 4). Units
+                are measured in nanometers (this affects only the translation).
             alpha (torch.tensor): Torsion angles of shape (*, N_res, n_torsion_angles, 2).
             F (torch.tensor): Labels for the amino acids of shape (*, N_res). Labels are encoded
-                as 0 -> Alanine, 1 -> Arginine, ..., 19 -> Valine. 
+                as 0 -> Alanine, 1 -> Arginine, ..., 19 -> Valine.
 
         Returns:
             tuple: A tuple consisting of the following values:
-                - final_positions: Tensor of shape (*, N_res, 37, 3). The 3D positions of 
+                - final_positions: Tensor of shape (*, N_res, 37, 3). The 3D positions of
                     all atoms, measured in Angstrom.
-                - position_mask: Boolean tensor of shape (*, N_res, 37). Masks the side-chain 
+                - position_mask: Boolean tensor of shape (*, N_res, 37). Masks the side-chain
                     atoms that aren't present in the amino acids.
                 - pseudo_beta_positions: Tensor of shape (*, N_res, 3). 3D positions in Angstrom
                     of C-beta (for all amino acids except glycine) or C-alpha (for glycine).
@@ -316,7 +320,7 @@ class StructureModule(nn.Module):
         ##########################################################################
 
         return final_positions, position_mask, pseudo_beta_positions
-        
+
 
     def forward(self, s, z, F):
         """
@@ -329,8 +333,8 @@ class StructureModule(nn.Module):
 
         Returns:
             dict: Output dictionary with the following entries:
-                - angles: Torsion angles of shape (*, N_layers, N_res, n_torsion_angles, 2). 
-                - frames: Backbone frames of shape (*, N_layers, N_res, 4, 4).  
+                - angles: Torsion angles of shape (*, N_layers, N_res, n_torsion_angles, 2).
+                - frames: Backbone frames of shape (*, N_layers, N_res, 4, 4).
                 - final_positions: Heavy atom positions in Angstrom of shape (*, N_res, 37, 3).
                 - position_mask: Boolean tensor of shape (*, N_res, 37), masking atoms that are
                     not present in the amino acids.
@@ -365,5 +369,5 @@ class StructureModule(nn.Module):
         ##########################################################################
 
         return outputs
-            
+
 
