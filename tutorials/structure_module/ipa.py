@@ -102,7 +102,35 @@ class InvariantPointAttention(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        # generate embds
+        q = self.linear_q(s)
+        k = self.linear_k(s)
+        v = self.linear_v(s)
+        #reshape q, v, k
+        batch_dim = q.shape[:-1]
+        new_shape = batch_dim + (n_head, c,)
+        q = q.reshape(new_shape)
+        k = k.reshape(new_shape)
+        v = v.reshape(new_shape)
+        q = q.movedim(-3, -2)
+        k = k.movedim(-3, -2)
+        v = v.movedim(-3, -2)
+
+        qp = self.linear_q_points(s)
+        kp = self.linear_k_points(s)
+        vp = self.linear_v_points(s)
+        new_shape_q = batch_dim + (3, n_head, n_qp)
+        new_shape_v = batch_dim + (3, n_head, n_pv)
+        qp = qp.reshape(new_shape_q)
+        kp = kp.reshape(new_shape_q)
+        vp = vp.reshape(new_shape_v)
+        #move nres
+        p_src = (-4, -3)
+        p_dst = (-2, -1)
+        qp = qp.movedim(p_src, p_dst)
+        kp = kp.movedim(p_src, p_dst)
+        vp = vp.movedim(p_src, p_dst)
+        embeddings = (q, k, v, qp, kp, vp)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
