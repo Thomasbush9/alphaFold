@@ -1,3 +1,4 @@
+from functools import total_ordering
 import torch
 from torch import nn
 
@@ -339,7 +340,7 @@ class StructureModule(nn.Module):
         # Replace "pass" statement with your code
         clone_t = T.clone()
         clone_t[..., :3, 3] *=10
-        final_positions, position_mask = compute_all_atom_coordinates(T, alpha, F)
+        final_positions, position_mask = compute_all_atom_coordinates(clone_t, alpha, F)
         c_beta_idx = residue_constants.atom_types.index('CB')
         c_alpha_idx = residue_constants.atom_types.index('CA')
         glycine_idx = residue_constants.restypes.index('G')
@@ -395,8 +396,27 @@ class StructureModule(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        s_init = self.layer_norm_s(s)
+        z = self.layer_norm_z(z)
+        s_in = self.linear_in(s_init)
+        T = torch.eye(4, device=device, dtype=dtype).broadcast_to(batch_dim + (N_res, 4, 4))
+        for l in range(self.n_layer):
+            s += self.ipa(s_in, z, T)
+            s = self.layer_norm_ipa(s)
+            s = self.transition(s)
+            T = T @ self.bb_update(s)
 
+            alpha = self.angle_resnet(s, s_init)
+
+            outputs['angles'].append(alpha)
+            outputs['frames'].append(T)
+        outputs['angles'] = torch.cat(outputs['angles'], dim=-3)
+        outputs['frames'] = torch.cat(outputs['frames'], dim=-3)
+
+        final_positions, position_mask, pseudo_beta_position = self.process_outputs(T, alpha, F)
+        outputs['final_positions'] = final_positions
+        outputs['position_mask'] = position_mask
+        outputs['pseudo_beta_positions'] = pseudo_beta_position
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
