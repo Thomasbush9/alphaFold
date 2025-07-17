@@ -82,7 +82,8 @@ class BackboneUpdate(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.linear = nn.Linear(c_s, 6)
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -114,7 +115,12 @@ class BackboneUpdate(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        s = self.linear(s)
+        quat = torch.cat([torch.ones(s.shape[:-1] + (1,)), s[..., :3]], dim=-1)
+        translation = s[..., 3:]
+        quat = quat / torch.linalg.vector_norm(quat,dim=-1,  keepdim=True)
+        R = quat_to_3x3_rotation(quat)
+        T = assemble_4x4_transform(R, translation)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
