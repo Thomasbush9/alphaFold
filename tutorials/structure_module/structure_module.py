@@ -283,7 +283,14 @@ class StructureModule(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.layer_norm_s = nn.LayerNorm(c_s)
+        self.layer_norm_z = nn.LayerNorm(c_z)
+        self.linear_in = nn.Linear(c_s, c_s)
+        self.layer_norm_ipa = nn.LayerNorm(c_s)
+        self.ipa = InvariantPointAttention(c_s, c_z)
+        self.transition =  StructureModuleTransition(c_s)
+        self.bb_update = BackboneUpdate(c_s)
+        self.angle_resnet = AngleResNet(c_s, c)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -330,7 +337,16 @@ class StructureModule(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        clone_t = T.clone()
+        clone_t[..., :3, 3] *=10
+        final_positions, position_mask = compute_all_atom_coordinates(T, alpha, F)
+        c_beta_idx = residue_constants.atom_types.index('CB')
+        c_alpha_idx = residue_constants.atom_types.index('CA')
+        glycine_idx = residue_constants.restypes.index('G')
+
+        pseudo_beta_positions = final_positions[..., c_beta_idx, :]
+        alpha_positions = final_positions[..., c_alpha_idx, :]
+        pseudo_beta_positions[F==glycine_idx] = alpha_positions[F==glycine_idx]
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
