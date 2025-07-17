@@ -149,7 +149,9 @@ class AngleResNetLayer(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        self.linear_1 = nn.Linear(c, c)
+        self.linear_2 = nn.Linear(c, c)
+        self.relu = nn.ReLU()
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -172,7 +174,8 @@ class AngleResNetLayer(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        a = a + self.linear_2(self.relu(self.linear_1(self.relu(a))))
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -207,8 +210,11 @@ class AngleResNet(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
-
+        self.linear_in = nn.Linear(c_s, c)
+        self.linear_initial = nn.Linear(c_s, c)
+        self.layers = nn.ModuleList([AngleResNetLayer(c) for _ in range(2)])
+        self.linear_out = nn.Linear(c, 2*n_torsion_angles)
+        self.relu = nn.ReLU()
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
@@ -234,7 +240,12 @@ class AngleResNet(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        alpha = self.linear_in(self.relu(s)) + self.linear_initial(self.relu(s_initial))
+        for layer in self.layers:
+            alpha = layer(alpha)
+        alpha = self.linear_out(self.relu(alpha))
+        alpha_shape = alpha.shape[:-1] + (self.n_torsion_angles, 2)
+        alpha = alpha.view(alpha_shape)
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
