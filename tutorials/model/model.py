@@ -7,6 +7,7 @@ from feature_embedding.extra_msa_stack import ExtraMsaStack, ExtraMsaEmbedder
 from evoformer.evoformer import EvoformerStack
 from structure_module.structure_module import StructureModule
 
+
 class Model(nn.Module):
     """
     Implements the Alphafold model according to Algorithm 2.
@@ -38,7 +39,7 @@ class Model(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        self.input_embedder = InputEmbedder(c_m=c_m, c_z= c_z, tf_dim=tf_dim, )
+        self.input_embedder = InputEmbedder(c_m=c_m, c_z= c_z, tf_dim=tf_dim)
         self.extra_msa_embedder = ExtraMsaEmbedder(f_e=f_e, c_e=c_e)
         self.recycling_embedder = RecyclingEmbedder(c_m=c_m, c_z=c_z)
         self.extra_msa_stack = ExtraMsaStack(c_e=c_e, c_z=c_z, num_blocks=num_blocks_extra_msa)
@@ -99,8 +100,44 @@ class Model(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
+        prev_m = torch.zeros(batch_shape + (N_seq, N_res, c_m), device=device, dtype=dtype)
+        prev_z = torch.zeros(batch_shape + (N_res, N_res, c_z), device=device, dtype=dtype)
+        prev_pseudo_beta_x = torch.zeros((N_res, 3), device=device, dtype=dtype)
 
+        for i in range(N_cycle):
+            print(f'Starting Iteration {i}')
+            #deal with batch
+            current_batch = {key:value[..., i] for key, value in batch.items()}
+
+            #input embedder
+            m, z = self.input_embedder(current_batch)
+            #recycling block
+            m_rec, z_rec = self.recycling_embedder(prev_m, prev_z, prev_pseudo_beta_x)
+            m[..., 0, :, :] += m_rec
+            z += z_rec
+
+            # extra msa stack
+            e = self.extra_msa_embedder(current_batch)
+            z = self.extra_msa_stack(e, z)
+            del e
+
+            #main trunk
+            m, z, s = self.evoformer(m, z)
+
+            F = current_batch['target_feat'].argmax(dim=-1)
+            structure_output = self.structure_module(s, z, F)
+
+            prev_m = m
+            prev_z = z
+            prev_pseudo_beta_x = structure_output['pseudo_beta_positions']
+
+            for key, value in structure_output.items():
+                if key in outputs:
+                    outputs[key].append(value)
+                else:
+                    outputs[key] = [value]
+
+        outputs = {key: torch.stack(value, dim=-1) for key, value in outputs.items()}
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
