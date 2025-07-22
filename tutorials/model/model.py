@@ -11,7 +11,7 @@ class Model(nn.Module):
     """
     Implements the Alphafold model according to Algorithm 2.
     """
-    
+
     def __init__(self, c_m=256, c_z=128, c_e=64, f_e = 25, tf_dim=21, c_s=384, num_blocks_extra_msa=4, num_blocks_evoformer=48):
         """
         Initializes the Alphafold model.
@@ -38,8 +38,12 @@ class Model(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        pass
-
+        self.input_embedder = InputEmbedder(c_m=c_m, c_z= c_z, tf_dim=tf_dim, )
+        self.extra_msa_embedder = ExtraMsaEmbedder(f_e=f_e, c_e=c_e)
+        self.recycling_embedder = RecyclingEmbedder(c_m=c_m, c_z=c_z)
+        self.extra_msa_stack = ExtraMsaStack(c_e=c_e, c_z=c_z, num_blocks=num_blocks_extra_msa)
+        self.evoformer = EvoformerStack(c_m=c_m, c_z=c_z, num_blocks=num_blocks_evoformer)
+        self.structure_module = StructureModule(c_s=c_s, c_z=c_z)
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
@@ -60,7 +64,7 @@ class Model(nn.Module):
                 * final_positions: Heavy-atom positions in Angstrom of shape (*, N_res, 37, 3, N_cycle).
                 * position_mask: Boolean tensor of shape (*, N_res, 37, N_cycle), masking atoms that
                     aren't present in the amino acids.
-                * angles: Torsion angles of shape (*, N_layers, N_res, n_torsion_angles, 2, N_cycle) for 
+                * angles: Torsion angles of shape (*, N_layers, N_res, n_torsion_angles, 2, N_cycle) for
                     every iteration of the Structure Module in every cycle.
                 * frames: Backbone frames of shape (*, N_layers, N_res, 4, 4, N_cycle) for every iteration
                     of the Structure Module in every cycle.
@@ -76,7 +80,7 @@ class Model(nn.Module):
 
         outputs = {}
 
-        
+
         ##########################################################################
         # TODO: Implement the forward pass of Algorithm 2:                       #
         #   - Create the initial prev_m, prev_z, and prev_pseudo_beta_x          #

@@ -401,18 +401,19 @@ class StructureModule(nn.Module):
         s_in = self.linear_in(s_init)
         T = torch.eye(4, device=device, dtype=dtype).broadcast_to(batch_dim + (N_res, 4, 4))
         for l in range(self.n_layer):
-            s += self.ipa(s_in, z, T)
+            s = s +  self.ipa(s_in, z, T)
             s = self.layer_norm_ipa(s)
             s = self.transition(s)
             T = T @ self.bb_update(s)
 
             alpha = self.angle_resnet(s, s_init)
 
+
             outputs['angles'].append(alpha)
             outputs['frames'].append(T)
-        outputs['angles'] = torch.cat(outputs['angles'], dim=-3)
-        outputs['frames'] = torch.cat(outputs['frames'], dim=-3)
 
+        outputs['angles'] = torch.stack(outputs['angles'], dim=-4)
+        outputs['frames'] = torch.stack(outputs['frames'], dim=-4)
         final_positions, position_mask, pseudo_beta_position = self.process_outputs(T, alpha, F)
         outputs['final_positions'] = final_positions
         outputs['position_mask'] = position_mask
