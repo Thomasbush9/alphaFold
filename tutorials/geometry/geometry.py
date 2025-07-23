@@ -235,8 +235,9 @@ def assemble_4x4_transform(R, t):
     # Replace "pass" statement with your code
     batch_shape = t.shape[:-1]
 
+
     Rt = torch.cat((R, t[..., None]), dim=-1)
-    pad = torch.zeros(batch_shape + (1, 4,))
+    pad = torch.zeros(batch_shape + (1, 4,),  device=t.device, dtype=t.dtype)
     pad[..., -1] = 1
     T = torch.cat((Rt, pad), dim=-2)
 

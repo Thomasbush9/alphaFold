@@ -33,6 +33,7 @@ class StructureModuleTransition(nn.Module):
         self.relu = nn.ReLU()
         self.linear_2 = nn.Linear(c_s, c_s)
         self.linear_3 = nn.Linear(c_s, c_s)
+        self.dropout = nn.Dropout(p=0.1)
         self.layer_norm = nn.LayerNorm(c_s)
 
         ##########################################################################
@@ -56,7 +57,9 @@ class StructureModuleTransition(nn.Module):
         ##########################################################################
 
         # Replace "pass" statement with your code
-        s = self.layer_norm(s + self.linear_3(self.relu(self.linear_2(self.relu(self.linear_1(s))))))
+        s = s + self.linear_3(self.relu(self.linear_2(self.relu(self.linear_1(s)))))
+        s = self.layer_norm(self.dropout(s))
+
 
         ##########################################################################
         #               END OF YOUR CODE                                         #
@@ -117,7 +120,7 @@ class BackboneUpdate(nn.Module):
 
         # Replace "pass" statement with your code
         s = self.linear(s)
-        quat = torch.cat([torch.ones(s.shape[:-1] + (1,)), s[..., :3]], dim=-1)
+        quat = torch.cat([torch.ones(s.shape[:-1] + (1,), device=s.device, dtype=s.dtype), s[..., :3]], dim=-1)
         translation = s[..., 3:]
         quat = quat / torch.linalg.vector_norm(quat,dim=-1,  keepdim=True)
         R = quat_to_3x3_rotation(quat)
@@ -401,7 +404,7 @@ class StructureModule(nn.Module):
         s_in = self.linear_in(s_init)
         T = torch.eye(4, device=device, dtype=dtype).broadcast_to(batch_dim + (N_res, 4, 4))
         for l in range(self.n_layer):
-            s = s +  self.ipa(s_in, z, T)
+            s += self.ipa(s_in, z, T)
             s = self.layer_norm_ipa(s)
             s = self.transition(s)
             T = T @ self.bb_update(s)

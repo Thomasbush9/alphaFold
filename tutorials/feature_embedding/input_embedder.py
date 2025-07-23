@@ -126,7 +126,7 @@ class InputEmbedder(nn.Module):
         b = self.linear_tf_z_j(target_feat)
 
         z = a.unsqueeze(-2) + b.unsqueeze(-3)
-        z = z + self.relpos(residue_index)
+        z += self.relpos(residue_index)
         target_feat = target_feat.unsqueeze(-3)
         m = self.linear_msa_m(msa_feat) + self.linear_tf_m(target_feat)
 

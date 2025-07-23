@@ -86,7 +86,7 @@ class MSAColumnGlobalAttention(nn.Module):
 
         # Replace "pass" statement with your code
         self.layer_norm_m = nn.LayerNorm(c_m)
-        self.global_attention = MultiHeadAttention(c_in=c_m, c=c, attn_dim=-2,N_head=N_head,gated=True, is_global=True)
+        self.global_attention = MultiHeadAttention(c_in=c_m, c=c, attn_dim=-3,N_head=N_head,gated=True, is_global=True)
 
 
         ##########################################################################
@@ -146,11 +146,12 @@ class ExtraMsaBlock(nn.Module):
 
         # Replace "pass" statement with your code
         #TODO add the dropout
+        self.dropout_rowwise = DropoutRowwise(p=0.15)
         self.msa_att_row = MSARowAttentionWithPairBias(c_e, c_z, c=8)
         self.msa_att_col = MSAColumnGlobalAttention(c_e, c_z)
         self.msa_transition = MSATransition(c_e)
         self.outer_product_mean = OuterProductMean(c_e, c_z)
-        self.core = PairStack(c_z=c_z)
+        self.core = PairStack(c_z)
 
 
         ##########################################################################

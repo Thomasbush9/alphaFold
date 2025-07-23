@@ -245,13 +245,9 @@ class OuterProductMean(nn.Module):
         m = self.layer_norm(m)
         a = self.linear_1(m)
         b = self.linear_2(m)
-        # a, b = (..., N_seq, N_res, c)
-        outer_p = torch.einsum('...ei,...sj->...esij', a, b)
-        out = outer_p.sum(dim=-5)
-        out = torch.flatten(out, start_dim=-2, end_dim=-1)
-        out = self.linear_out(out)
-        z = out / N_seq
-
+        o = torch.einsum('...sic,...sjd->...ijcd', a, b)
+        o = torch.flatten(o, start_dim=-2)
+        z = self.linear_out(o) / N_seq
         ##########################################################################
         #               END OF YOUR CODE                                         #
         ##########################################################################
